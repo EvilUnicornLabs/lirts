@@ -1,0 +1,92 @@
+/* The looks: what a style (T) changes. Classes are set on the App: style-<name>,
+   density-<normal|dense|tight>, borders-<round|solid|none|double|ascii>, corners-<round|square>.
+   With no class set, styles.tcss alone renders the classic look. */
+
+.borders-double #side-left #side { border-right: double $primary-darken-2; }
+.borders-ascii #side-left #side { border-right: ascii $primary-darken-2; }
+.borders-none #side-left #side { border-right: none; }
+
+.borders-double #bottom #side { border-top: double $primary-darken-2; }
+.borders-ascii #bottom #side { border-top: ascii $primary-darken-2; }
+.borders-none #bottom #side { border-top: none; }
+
+.borders-round #net {
+    border: round $primary-darken-2;
+}
+
+.borders-solid #net {
+    border: solid $primary-darken-2;
+}
+
+.borders-double #net {
+    border: double $primary-darken-2;
+}
+
+.borders-double #top {
+    border-bottom: double $primary-darken-2;
+}
+
+.borders-double #side {
+    border-left: double $primary-darken-2;
+}
+
+.borders-ascii #net {
+    border: ascii $primary-darken-2;
+}
+
+.borders-ascii #top {
+    border-bottom: ascii $primary-darken-2;
+}
+
+.borders-ascii #side {
+    border-left: ascii $primary-darken-2;
+}
+
+.borders-none #net {
+    border: none;
+    padding: 0 1;
+}
+
+.borders-none #top {
+    border-bottom: none;
+}
+
+.borders-none #side {
+    border-left: none;
+}
+
+.density-dense #top {
+    height: 1;
+    padding: 0 1;
+}
+
+.density-dense #filter {
+    height: 1;
+    border: none;
+}
+
+.density-dense #net {
+    height: 8;
+}
+
+.density-dense #side {
+    padding: 0;
+}
+
+.density-tight #top {
+    height: 5;
+}
+
+.density-tight #filter {
+    height: 1;
+    border: none;
+}
+
+.density-tight #net {
+    height: 4;
+}
+
+.density-tight #side {
+    padding: 0 1;
+    width: 40;
+}

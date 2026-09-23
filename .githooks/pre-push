@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Rule: every push passes the same checks CI runs. Install with: make hooks
+set -euo pipefail
+make ci-local

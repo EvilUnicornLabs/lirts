@@ -1,0 +1,322 @@
+Screen {
+    layout: vertical;
+    background: $surface;
+}
+
+#top {
+    height: 6;
+    padding: 0 1;
+    background: $panel;
+    border-bottom: solid $primary-darken-2;
+}
+
+#main {
+    height: 1fr;
+}
+
+#left {
+    width: 1fr;
+}
+
+#filter {
+    height: 3;
+    border: tall $primary-darken-3;
+}
+
+#filter:focus {
+    border: tall $accent;
+}
+
+#table {
+    height: 1fr;
+}
+
+#side {
+    width: 44;
+    min-width: 40;
+    border-left: solid $primary-darken-2;
+    padding: 0 1;
+    background: $panel;
+}
+
+#side.hidden {
+    display: none;
+}
+
+/* The two empty slots the layout can move the side panel into; both are 0 until it arrives. */
+#side-left {
+    width: auto;
+    height: 1fr;
+}
+
+#bottom {
+    height: auto;
+}
+
+/* Moved out of its default place the panel keeps one frame, on the edge facing the table;
+   the style's own border- class follows it there. */
+#side-left #side { border-left: none; border-right: solid $primary-darken-2; }
+#bottom #side {
+    width: 1fr;
+    min-width: 0;
+    height: 12;
+    border-left: none;
+    border-top: solid $primary-darken-2;
+}
+
+#net {
+    height: 12;
+    border: round $primary-darken-2;
+    border-title-color: $text;
+    border-title-style: bold;
+    padding: 0 1;
+    background: $panel;
+}
+
+#net.hidden {
+    display: none;
+}
+
+#side-details {
+    height: auto;
+}
+
+#side-insights {
+    height: auto;
+    margin-top: 1;
+}
+
+/* ----- modal dialogs ---------------------------------------------------- */
+
+ModalScreen {
+    align: center middle;
+}
+
+.dialog {
+    width: 80%;
+    max-width: 110;
+    height: auto;
+    max-height: 90%;
+    background: $surface;
+    border: thick $accent;
+    padding: 1 2;
+}
+
+.dialog-title {
+    text-align: center;
+    background: $accent;
+    color: $text;
+    text-style: bold;
+    height: 1;
+    margin-bottom: 1;
+}
+
+.dialog-footer {
+    text-align: center;
+    color: $text-muted;
+    height: 1;
+    margin-top: 1;
+}
+
+.dialog-body {
+    height: auto;
+    max-height: 30;
+}
+
+#kill-dialog {
+    width: 90;
+}
+
+#kill-buttons {
+    height: 3;
+    align: center middle;
+    margin-top: 1;
+}
+
+#kill-buttons Button {
+    margin: 0 1;
+}
+
+/* ----- full screens ----------------------------------------------------- */
+
+DetailsScreen, LogScreen, ExplainScreen, GraphScreen, StarMapScreen, HelpScreen {
+    background: $surface;
+}
+
+.screen-title {
+    text-align: center;
+    background: $accent;
+    color: $text;
+    text-style: bold;
+    height: 1;
+}
+
+.screen-footer {
+    text-align: center;
+    color: $text-muted;
+    height: 1;
+    dock: bottom;
+}
+
+#events-legend {
+    height: auto;
+    padding: 0 1;
+    margin-bottom: 1;
+    border-bottom: solid $primary-darken-2;
+}
+
+#events-summary {
+    height: auto;
+    max-height: 12;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+#events-table {
+    height: 1fr;
+}
+
+#health-summary {
+    height: auto;
+    max-height: 10;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+#health-table {
+    height: 1fr;
+}
+
+#setup-question {
+    height: auto;
+    padding: 1 1 0 1;
+    margin-bottom: 1;
+}
+
+#setup-options, #setup-multi {
+    height: 1fr;
+    margin: 0 1;
+}
+
+#setup-input {
+    margin: 0 1;
+}
+
+#setup-summary {
+    height: 1fr;
+    padding: 0 1;
+}
+
+#settings-info {
+    height: auto;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+#settings-table {
+    height: 1fr;
+}
+
+#columns-table {
+    height: auto;
+    max-height: 24;
+}
+
+#log-content, #graph-content {
+    height: 1fr;
+    padding: 0 1;
+}
+
+TabbedContent {
+    height: 1fr;
+}
+
+TabPane {
+    padding: 1 2;
+}
+
+.pane-body {
+    height: auto;
+}
+
+#map-body {
+    height: 1fr;
+}
+
+#map-canvas {
+    width: 1fr;
+    height: 1fr;
+}
+
+#map-panel {
+    width: 34;
+    height: 1fr;
+    padding: 0 1;
+    border-left: solid $accent;
+}
+
+#map-legend {
+    height: 2;
+}
+
+/* ----- styles ------------------------------------------------------------ */
+/* The app carries four classes set by lirts/tui/app_ui.py: style-<name>,
+   density-<normal|dense|tight>, borders-<round|solid|none|double|ascii> and
+   corners-<round|square>.  With no class set the rules above are what is drawn, so
+   the classic style looks exactly like lirts always has.  Colours are the theme's
+   business; no style rule sets one. */
+
+/* corners-round / corners-square is on the app for a user stylesheet to hang rules on; the
+   frames themselves follow it through the borders- class, which is round or solid according
+   to ui.rounded_corners whenever the style's own frame is a plain one. */
+
+#menu-dialog {
+    width: 34;
+    max-width: 50;
+}
+
+#menu-options {
+    height: auto;
+    max-height: 10;
+    border: none;
+    background: $surface;
+}
+
+#history {
+    height: 6;
+    border: round $primary-darken-2;
+    border-title-color: $text;
+    border-title-style: bold;
+    padding: 0 1;
+    background: $panel;
+}
+
+#history.hidden {
+    display: none;
+}
+
+#picker-description {
+    margin: 0 1 1 1;
+}
+
+#picker-options {
+    height: auto;
+    max-height: 20;
+    margin: 0 1;
+}
+
+#filter.command {
+    border: tall $warning;
+}
+
+#commandbar {
+    border: tall $warning;
+    background: $panel;
+    padding: 0 1;
+}
+
+#commandbar > .option-list--option-highlighted {
+    color: $block-cursor-foreground;
+    background: $block-cursor-background;
+    text-style: bold;
+}

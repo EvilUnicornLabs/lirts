@@ -1,0 +1,14 @@
+# gitleaks configuration: the default rules, minus the virtualenv and build folders that the
+# --no-git scan in `make ci-local` and CI would otherwise walk (third-party byte code trips
+# the generic API-key rule).
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''(^|/)\.?venv/''',
+  '''(^|/)build/''',
+  '''(^|/)dist/''',
+  '''\.egg-info/''',
+  '''(^|/)\.(pytest|mypy|ruff)_cache/''',
+]

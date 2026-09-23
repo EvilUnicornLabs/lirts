@@ -1,0 +1,115 @@
+# lirts configuration (example)
+#
+# Copy to ~/.config/lirts/config.yaml  (or run: lirts config init)
+# Every key is optional; anything missing falls back to the built-in default.
+version: 2
+
+# Seconds between refreshes of the main table.
+refresh_interval: 2.0
+
+# Textual theme name.  See `lirts config themes`.
+theme: dracula
+
+# Show UDP sockets that are bound but have no peer (DNS, mDNS, ...).  Toggle with `u`.
+show_udp: false
+sources: [local, docker, ssh, kubernetes]   # which sources appear; W in the dashboard runs the setup wizard
+
+# Hide macOS / Linux system daemons (rapportd, mDNSResponder, ...).  Toggle with `h`.
+hide_system: false
+
+# Show the side panel on start.  Toggle with `p`.
+side_panel: true
+net_panel: true       # btop-style traffic box under the table; N switches whole machine / selected row
+
+# Columns of the main table, in order.
+# Available: port, proto, state, src, service, identity, process, pids, cpu, mem,
+#            conns, activity, bandwidth, uptime, project, container, stack, http,
+#            latency, health, origin, status, trend
+columns: [port, state, src, project, service, process, pids, cpu, mem, conns, activity, uptime, status]
+
+# Group rows under collapsible compose-stack / project headers.  Toggle with `G`.
+group_by_stack: false
+
+# Custom service names.  Keys are a port number, or a substring matched against
+# the process name, command line, container name or image.
+editor: ""            # O opens the project folder here, e.g. cursor, code, idea; empty = file manager
+
+aliases:
+  3000: "Shop frontend"
+  "manage.py": "Shop admin (Django)"
+
+# Resource thresholds used for colouring and warnings.
+thresholds:
+  cpu: { yellow: 40.0, red: 80.0 }
+  memory_mb: { yellow: 500.0, red: 1000.0 }
+  latency_ms: { yellow: 500.0, red: 1500.0 }
+
+# Environment variable names (substring, case-insensitive) masked in the UI.
+mask_env_vars: [SECRET, PASSWORD, PASSWD, TOKEN, API_KEY, PRIVATE, CREDENTIAL]
+
+http_probe:
+  enabled: true
+  interval: 10.0        # seconds between probes of the same port
+  timeout: 1.0
+  skip_ports: [22, 25, 53, 1025, 1883, 3306, 4317, 5432, 5433, 6379, 6380, 27017, 11211, 9092, 5672]
+  force_ports: []       # probe these even if they are in skip_ports
+
+health:                 # checks run only on demand: H in the dashboard or `lirts health`
+  timeout: 1.5
+  paths: [/health, /healthz, /readyz, /livez, /api/health, /-/health, /actuator/health, /status, /ping, /up]
+  overrides: {}         # e.g. {8080: /internal/status}
+
+proxies:
+  enabled: true         # vhosts and upstreams from `nginx -T` / `httpd -S` at start (r in w reloads)
+
+docker:
+  enabled: true
+  show_unpublished: false   # also list containers whose ports are not published
+  inspect_interval: 15.0    # seconds between `docker inspect` refreshes per container
+  stats: true               # per-container CPU / memory / network via the stats API
+
+kubernetes:
+  enabled: auto         # auto = when kubectl and a current context exist; true / false to force
+  context: null         # null = kubeconfig's current context (never modified by lirts)
+  namespace: null       # null = the context's namespace
+  all_namespaces: false
+  interval: 30.0        # seconds between background refreshes
+  timeout: 10.0         # seconds before a kubectl call is abandoned
+
+bandwidth:            # per-process rates; `connections: true` adds per-connection rates to w (one more command per sample)
+  mode: auto            # "auto" uses macOS `nettop` when available, "off" disables it
+  interval: 5.0
+  connections: false
+
+history:
+  persist: true         # keep history and the last snapshot across runs
+  window: 120           # samples kept per port (one per refresh)
+  retention_hours: 24
+
+insights:
+  stale_after_hours: 6.0   # idle dev server with no connections for this long => stale
+  restart_warning: 3       # restarts within an hour that trigger a warning
+  show_stopped_minutes: 5  # keep a dimmed STOPPED row this long after a port disappears (0 = off)
+  highlight_new_minutes: 3
+  pattern_days: 30      # remember recurring issues (conflicts, restarts, kills) this long; 0 = off
+  pattern_min: 3        # report a pattern once it happened this many times # highlight services started within this many minutes (0 = off)
+
+# Looks.  Every one of these is also in Settings (,) under the Layout tab.
+ui:
+  style: classic           # classic | compact | tight | cracktro | phosphor  (T cycles): borders, density, glyphs, panels
+  layout: default          # default | containers | hosts  (U cycles): columns, sections, panels and their placement
+  glyphs: block            # block | braille | demoscene: sparklines, bars, row icons
+  rounded_corners: true
+  row_icons: true          # ◆ ● ○ ⬢ before the service name, source icon in SRC
+  history_panel: false     # sparklines of the selected row under the table (Y)
+  clock: "%H:%M:%S"        # strftime; also "%H:%M", "%I:%M:%S %p", "%Y-%m-%d %H:%M:%S"
+  truecolor: auto          # auto | on | off, applied at start
+
+cli:
+  force_color: false       # keep colours when lirts list / explain is piped
+
+# The star map (M) remembers what it has seen on this machine.
+topology:
+  days: 14         # stars and lines not seen for this long are forgotten
+  usual_days: 3    # a relation seen on this many different days stays on the map (dim) while idle
+

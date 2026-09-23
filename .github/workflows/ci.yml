@@ -1,0 +1,80 @@
+name: CI
+
+# Cost rules for this private repo: every minute is billed and macOS counts 10x.
+# - a push runs ONE Ubuntu job (lint, format, types, tests, smoke, file length, secret scan):
+#   about 2 billed minutes; the same list is `make ci-local`
+# - the full matrix (three Python versions, macOS) runs only when started by hand
+#   (Actions -> CI -> Run workflow) or for a release tag
+# - a newer push cancels a run still in progress for the same branch
+# - documentation-only changes do not run CI at all
+
+on:
+  push:
+    branches: [master, main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "packaging/**"
+      - "config.example.yaml"
+      - ".gitignore"
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "packaging/**"
+      - "config.example.yaml"
+      - ".gitignore"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quick:
+    name: ubuntu / py3.12
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check lirts tests
+      - run: ruff format --check lirts tests
+      - run: mypy lirts
+      - run: pytest -q
+      - run: lirts --version && lirts explain --demo > /dev/null
+      - run: scripts/check-file-length.sh
+      - name: gitleaks secret scan
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.18.4 detect --source=/repo --no-git --redact
+
+  matrix:
+    name: ${{ matrix.os }} / py${{ matrix.python }}
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.11", "3.12", "3.13"]
+        include:
+          - os: macos-latest
+            python: "3.13"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check lirts tests
+      - run: ruff format --check lirts tests
+      - run: mypy lirts
+      - run: pytest -q
+      - run: lirts --version && lirts list --no-docker --no-probe
+      - run: lirts record 3s --interval 1 -o /tmp/rec.jsonl --demo && lirts list --replay /tmp/rec.jsonl
