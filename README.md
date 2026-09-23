@@ -453,6 +453,11 @@ make coverage
 `make ci-local` must pass before every push; the hook enforces it. Gitleaks runs from the
 binary or from docker and is skipped with a warning when neither exists (CI still runs it).
 
+`master` is protected. Every change goes on a branch named `feature/`, `fix/`, `docs/`,
+`chores/` or `improvement/` and lands through a squash-merged pull request that passed CI, one
+per finished TODO item, with the subject `<type>: <summary>`. The whole workflow, the commit
+format, the PR template and the CI cost rules are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 The project rules and code conventions live in [CLAUDE.md](CLAUDE.md) and
 [.claude/rules/](.claude/rules/) (project rules, code style, code quality, testing); the roadmap in
 [TODO.md](TODO.md).

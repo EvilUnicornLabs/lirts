@@ -87,6 +87,12 @@ All notable changes to lirts are documented here.  The format follows
   CI and is mandatory before a push; both are enforced by the next change.
 
 ### Changed
+- Git conventions: `master` is protected and only changes through squash-merged pull requests
+  from `feature/`, `fix/`, `docs/`, `chores/` or `improvement/` branches, one per finished TODO
+  item, commit subject `<type>: <summary>`, the one CI job as a required check; `CONTRIBUTING.md`,
+  a pull request template and issue templates. Pull requests always run CI (a required check
+  needs a run); documentation-only merges still skip it. The git history was reset to a single
+  initial commit on 2026-09-23; this changelog is the record of what came before.
 - Licence: Apache License 2.0 (was MIT); LICENSE and NOTICE added, pyproject updated.
 - The code base follows the rules: no file over 400 lines. `lirts/cli.py` is the package
   `lirts/cli/` (one module per command area), `lirts/engine.py` is `lirts/engine/` (base and
