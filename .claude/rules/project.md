@@ -38,5 +38,7 @@ These are the decisions that define the tool. They are not up for reinterpretati
 - **Degrade, do not fail, on missing external tools.** docker, kubectl, nettop, ss, ssh,
   nginx, httpd, terminal-notifier are optional. When one is missing the feature is off, the
   footer key is dimmed and `lirts doctor` says what is missing and why it matters.
-- **CI cost.** One Ubuntu job per push, docs-only pushes skip CI, the full matrix only by hand
-  or on a release tag. Pushes are batched and happen only when the maintainer says so.
+- **CI cost.** One Ubuntu job per run (a pull request: on the branch, then on the merge),
+  docs-only merges skip CI, pull requests never do, the full matrix only by hand
+  or on a release tag. A branch is pushed once, when its item is finished and `make ci-local`
+  passed; `master` only changes through a merged pull request.

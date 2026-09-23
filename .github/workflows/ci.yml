@@ -6,7 +6,8 @@ name: CI
 # - the full matrix (three Python versions, macOS) runs only when started by hand
 #   (Actions -> CI -> Run workflow) or for a release tag
 # - a newer push cancels a run still in progress for the same branch
-# - documentation-only changes do not run CI at all
+# - a documentation-only merge to master does not run CI; a pull request always does
+# - master is protected: changes arrive through squash-merged pull requests (CONTRIBUTING.md)
 
 on:
   push:
@@ -17,13 +18,8 @@ on:
       - "packaging/**"
       - "config.example.yaml"
       - ".gitignore"
+  # every pull request runs the job (the required check needs a run), docs included
   pull_request:
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - "packaging/**"
-      - "config.example.yaml"
-      - ".gitignore"
   workflow_dispatch:
 
 concurrency:
