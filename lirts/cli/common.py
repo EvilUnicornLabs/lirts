@@ -23,10 +23,12 @@ from lirts.constants import (
     MIN_REFRESH_INTERVAL,
     PIPED_CONSOLE_WIDTH,
 )
+from lirts.daemon_client import DaemonClient, ping, socket_path
 from lirts.demo import DemoEngine
 from lirts.engine import Engine
 from lirts.listener_json import listener_dict
 from lirts.models import Snapshot
+from lirts.remote import RemoteEngine
 from lirts.replay import ReplayEngine
 from lirts.tui.render import resolve_columns
 
@@ -51,6 +53,12 @@ SystemOpt = Annotated[
     ),
 ]
 DebugOpt = Annotated[bool, typer.Option("--debug", help="Verbose logging to the state directory.")]
+StandaloneOpt = Annotated[
+    bool,
+    typer.Option(
+        "--standalone", help="Run an engine of its own even when the lirts daemon is running."
+    ),
+]
 
 
 def _setup_logging(debug: bool) -> None:
@@ -82,8 +90,14 @@ ReplayOpt = Annotated[
 ]
 
 
-def _make_engine(cfg: dict[str, Any], *, demo: bool = False, replay: Path | None = None) -> Engine:
-    """The live engine, or the demo / replay stand-ins."""
+def _make_engine(
+    cfg: dict[str, Any],
+    *,
+    demo: bool = False,
+    replay: Path | None = None,
+    standalone: bool = False,
+) -> Engine:
+    """The live engine, a client of the running daemon, or the demo / replay stand-ins."""
     if demo and replay:
         err_console.print("[red]--demo and --replay cannot be combined[/]")
         raise typer.Exit(code=2)
@@ -95,6 +109,11 @@ def _make_engine(cfg: dict[str, Any], *, demo: bool = False, replay: Path | None
         except (OSError, ValueError) as exc:
             err_console.print(f"[red]Cannot replay {replay}: {exc}[/]")
             raise typer.Exit(code=2) from exc
+    if not standalone:
+        path = socket_path()
+        info = ping(path)
+        if info is not None:
+            return RemoteEngine(cfg, DaemonClient(path), info)
     return Engine(cfg)
 
 

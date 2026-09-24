@@ -62,6 +62,7 @@ CASES: dict[str, tuple[str, Any]] = {
     "bandwidth.mode": ("off", "off"),
     "bandwidth.connections": ("on", True),
     "history.persist": ("off", False),
+    "daemon.idle_interval": ("30", 30.0),
 }
 
 

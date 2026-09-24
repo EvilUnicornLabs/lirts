@@ -284,6 +284,14 @@ SETTINGS: list[Setting] = [
         "Rates per client → port link on the w map; one more command per sample (off by default)",
     ),
     Setting(
+        "daemon.idle_interval",
+        "Daemon idle refresh (s)",
+        SettingKind.NUMBER,
+        "Seconds between the daemon's own refreshes while no dashboard is attached (restart it)",
+        minimum=MINIMUMS["daemon.idle_interval"],
+        live=False,
+    ),
+    Setting(
         "history.persist",
         "Persist history",
         SettingKind.BOOL,

@@ -113,3 +113,7 @@ topology:
   days: 14         # stars and lines not seen for this long are forgotten
   usual_days: 3    # a relation seen on this many different days stays on the map (dim) while idle
 
+# The daemon (lirts daemon / lirts -d, lirts daemon install for login start) keeps one engine
+# open for every dashboard, CLI command and coding agent.
+daemon:
+  idle_interval: 10   # seconds between its own refreshes while no dashboard is attached (--idle overrides)

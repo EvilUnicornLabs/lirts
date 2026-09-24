@@ -41,6 +41,7 @@ SETUP_STEPS = [
     "kubernetes.enabled",
     "bandwidth.mode",
     "history.persist",
+    "daemon.idle_interval",
 ]
 
 

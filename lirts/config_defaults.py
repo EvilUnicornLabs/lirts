@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lirts.constants import MIN_REFRESH_INTERVAL
+from lirts.constants import DAEMON_IDLE_INTERVAL, MIN_REFRESH_INTERVAL
 
 # Bumped whenever keys are removed or renamed (added keys just take their defaults).  A file
 # with an older schema still
@@ -216,6 +216,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # A relation seen on this many different days is "usual" and stays on the map while idle.
         "usual_days": 3,
     },
+    "daemon": {
+        # Seconds between the daemon's own refreshes while no dashboard is attached.
+        "idle_interval": DAEMON_IDLE_INTERVAL,
+    },
 }
 
 
@@ -235,6 +239,7 @@ MINIMUMS: dict[str, float] = {
     "insights.pattern_min": 2,
     "topology.days": 1,
     "topology.usual_days": 1,
+    "daemon.idle_interval": MIN_REFRESH_INTERVAL,
     "thresholds.cpu.yellow": 0,
     "thresholds.cpu.red": 0,
     "thresholds.memory_mb.yellow": 0,

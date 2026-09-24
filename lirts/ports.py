@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from typing import Any
 
 import psutil
 
@@ -120,6 +121,23 @@ class PortMemory:
     def __bool__(self) -> bool:
         """False while lirts has not seen anything yet: the panel then says nothing."""
         return bool(self._by_port)
+
+    def to_dict(self) -> dict[str, Any]:
+        """The memory as plain JSON values, for a daemon frame."""
+        return {
+            "young": self.young,
+            "stacks": dict(self._stacks),
+            "holders": [asdict(h) for group in self._by_port.values() for h in group],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PortMemory:
+        """Rebuild what :meth:`to_dict` produced."""
+        return cls(
+            (UsualHolder(**h) for h in data.get("holders", [])),
+            young=bool(data.get("young", True)),
+            stacks=data.get("stacks") or {},
+        )
 
     @classmethod
     def build(

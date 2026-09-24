@@ -235,8 +235,8 @@ class LirtsApp(
         mode = ""
         if getattr(self.engine, "demo", False):
             mode = " · DEMO (synthetic machine)"
-        elif getattr(self.engine, "replay", False):
-            # Only the replay engine has a position; the protocol does not declare one.
+        elif getattr(self.engine, "replay", False) or getattr(self.engine, "remote", False):
+            # Only the replay and remote engines have a position; the protocol does not declare one.
             mode = f" · {getattr(self.engine, 'position', '')}"
         self.sub_title = f"{s['total']} listeners{docker} · sort {self.sort_key}{' ↓' if self.sort_reverse else ''}{flag_text}{marked}{mode}"
         self.update_table()

@@ -7,6 +7,15 @@ All notable changes to lirts are documented here.  The format follows
 ## [Unreleased]
 
 ### Added
+- The daemon: `lirts daemon` (`lirts -d`) runs one engine for the whole machine over a Unix
+  socket in the state directory; the dashboard, every CLI command and `lirts mcp` attach to it
+  when it runs (`--standalone` opts out), so there is one collector, one history and one star
+  map that keeps learning all day. `lirts daemon install` starts it at login (launchd agent on
+  macOS, systemd user unit on Linux); `status`, `stop`, `start`, `uninstall`. Idle refresh
+  every `daemon.idle_interval` seconds (10; `--idle` overrides), an attached dashboard drives
+  faster refreshes; health checks still only on request, results kept in the daemon; the title
+  bar says `via daemon (PID …)`; `lirts doctor` reports it. New setting in Settings
+  (Collection tab) and the wizard.
 - MCP server for coding agents: `lirts mcp` speaks the Model Context Protocol over stdio
   (Claude Code: `claude mcp add lirts -- lirts mcp`). It holds one engine open and refreshes it
   at `refresh_interval` while the client keeps it running, like an open dashboard; history, port
