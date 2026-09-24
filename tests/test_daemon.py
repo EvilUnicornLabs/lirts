@@ -315,15 +315,18 @@ def test_start_and_stop_need_an_installed_service(tmp_path: Path) -> None:
 
 def test_install_command_end_to_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     mgr = daemon_install.manager("Darwin", home=tmp_path)
+    ran: list[list[str]] = []
     monkeypatch.setattr(daemon_cmd.daemon_install, "manager", lambda: mgr)
     monkeypatch.setattr(daemon_cmd.daemon_install, "executable", lambda: "/opt/bin/lirts")
-    monkeypatch.setattr(daemon_cmd.daemon_install, "_run", lambda c: (0, ""))
+    # The real service manager is never reached: the stub records what would have run.
+    monkeypatch.setattr(daemon_cmd.daemon_install, "_run", lambda c: ran.append(c) or (0, ""))
 
     result = runner.invoke(cli.app, ["daemon", "install"])
 
     assert result.exit_code == 0, result.output
     assert "the daemon starts now" in result.output  # Rich wraps the long line
     assert mgr is not None and mgr.file.exists()
+    assert ran == [["launchctl", "load", "-w", str(mgr.file)]]
 
 
 def test_doctor_reports_the_daemon(monkeypatch: pytest.MonkeyPatch) -> None:

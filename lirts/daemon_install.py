@@ -102,8 +102,9 @@ WantedBy=default.target
 """
 
 
-def install(mgr: Manager, *, exe: str, run: Runner = _run) -> tuple[bool, str]:
+def install(mgr: Manager, *, exe: str, run: Runner | None = None) -> tuple[bool, str]:
     """Write the service file and load it, so the daemon runs now and at every login."""
+    run = run or _run
     log = state_dir() / "daemon.log"
     try:
         state_dir().mkdir(parents=True, exist_ok=True)
@@ -122,8 +123,9 @@ def install(mgr: Manager, *, exe: str, run: Runner = _run) -> tuple[bool, str]:
     return True, f"installed {mgr.file}; the daemon starts now and at every login"
 
 
-def uninstall(mgr: Manager, *, run: Runner = _run) -> tuple[bool, str]:
+def uninstall(mgr: Manager, *, run: Runner | None = None) -> tuple[bool, str]:
     """Unload the service and remove its file."""
+    run = run or _run
     if not mgr.file.exists():
         return False, f"not installed ({mgr.file} does not exist)"
     if mgr.kind == "launchd":
@@ -137,8 +139,9 @@ def uninstall(mgr: Manager, *, run: Runner = _run) -> tuple[bool, str]:
     return True, f"removed {mgr.file}; the daemon no longer starts at login"
 
 
-def start(mgr: Manager, *, run: Runner = _run) -> tuple[bool, str]:
+def start(mgr: Manager, *, run: Runner | None = None) -> tuple[bool, str]:
     """Start the installed service now."""
+    run = run or _run
     if not mgr.file.exists():
         return False, "not installed; run `lirts daemon install` first"
     if mgr.kind == "launchd":
@@ -148,8 +151,9 @@ def start(mgr: Manager, *, run: Runner = _run) -> tuple[bool, str]:
     return code == 0, out or "started"
 
 
-def stop(mgr: Manager, *, run: Runner = _run) -> tuple[bool, str]:
+def stop(mgr: Manager, *, run: Runner | None = None) -> tuple[bool, str]:
     """Stop the installed service (it comes back at the next login)."""
+    run = run or _run
     if not mgr.file.exists():
         return False, "not installed"
     if mgr.kind == "launchd":
