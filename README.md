@@ -220,7 +220,29 @@ lirts setup                 # step-by-step settings wizard in the dashboard
 lirts config path | show | init | upgrade | set http_probe.interval 30 | themes
 
 lirts mcp                   # serve all of the above to a coding agent over MCP (stdio); --allow-actions adds free / fix / restart
+
+lirts daemon                # one engine for the whole machine, in the foreground (lirts -d); dashboards, commands and agents attach to it
+lirts daemon install        # start it at every login (launchd on macOS, systemd on Linux); status | stop | start | uninstall
 ```
+
+### The daemon: one engine for everything
+
+Without it, every `lirts`, `lirts who` and `lirts mcp` collects on its own and learns on its
+own. `lirts daemon` (or `lirts -d`) runs one engine for the whole machine, and from then on
+the dashboard, every CLI command and every agent session attach to it instead of starting
+their own: one collector, one history, one star map, and the port memory keeps learning all
+day even when no dashboard is open. `lirts daemon install` starts it at login; `lirts daemon
+status`, `stop`, `start` and `uninstall` manage it; `lirts doctor` shows whether one runs; the
+title bar says `via daemon (PID …)` when the dashboard is attached, and `lirts --standalone`
+runs an engine of its own anyway.
+
+While nothing is attached the daemon refreshes every `daemon.idle_interval` seconds (10 by
+default, `--idle N` overrides it); an attached dashboard drives refreshes at its own
+`refresh_interval`. Health checks still run only when asked, from whichever side asks, and
+their results are kept in the daemon. Kill, restart, logs and exec happen on the attached
+side, which is the same user on the same machine; what must land in the shared memory (a
+note in the event log, a routes reload) goes over the socket. The socket lives in the state
+directory, readable by your user only.
 
 ### For coding agents (MCP)
 
@@ -231,16 +253,28 @@ machine look like. It needs the optional `mcp` SDK (`pip install 'lirts[mcp]'`, 
 `pipx inject lirts mcp`); `lirts doctor` says whether it is there.
 
 ```bash
-claude mcp add lirts -- lirts mcp          # Claude Code; other clients take the same command
+claude mcp add --scope user lirts -- lirts mcp   # Claude Code, once, for every repository
 ```
 
 ```json
 { "mcpServers": { "lirts": { "command": "lirts", "args": ["mcp"] } } }
 ```
 
-The server holds one engine open and refreshes it at `refresh_interval` while the client keeps
-it running, exactly like an open dashboard: history, port memory and the star map keep
-learning, and everything stops with the client. Nothing runs when no client started it.
+Registered at user scope it is available in every project. Then tell the agent when to use
+it, once, in your global `~/.claude/CLAUDE.md` (or a project's):
+
+```markdown
+## lirts (MCP)
+Before starting a dev server, picking a port or debugging "port already in use", ask the
+lirts MCP: `who` for the port, `list_listeners` for what runs, `explain` for orientation,
+`graph` and `topology` for what talks to what, `health` for a check now. Prefer its answer
+over lsof / ps guesses. Never free, fix or restart anything through it without asking me.
+```
+
+Each agent session starts its own `lirts mcp` process. With the daemon running (see above)
+they all attach to the one engine that has been learning all day; without it each server
+holds an engine of its own open, refreshed at `refresh_interval` while the client keeps it
+running, and everything stops with the client. Nothing runs when no client started it.
 
 | Tool | Answers |
 |---|---|
@@ -291,6 +325,7 @@ asked (`H`, or `lirts health`), never in the background. The table, the side pan
 | Stack / project | PROJECT column; `g` → stacks |
 | Problems and suggestions | ✖ / ⚠ rows; side panel "Insights"; `!` problems only; `n` events with ongoing / recurring; `F` runs the proposed fix |
 | The same answers for a coding agent | `lirts mcp`: an MCP server over stdio with `who`, `list_listeners`, `explain`, `graph`, `topology`, `health` and friends; actions only with `--allow-actions` |
+| One engine shared by everything, learning all day | `lirts daemon` / `lirts daemon install`; the title bar says `via daemon`; `lirts daemon status`; `lirts doctor` |
 | A port that is taken | the row's insights: "usually shop/web, now node (blog)" when another service sits on a port lirts knows, "left over" when the holder's parent is gone or its stack is stopped, "also used by blog/wordpress" when two projects share a port; side panel "Usually" line; `lirts who 3000`, `lirts free 3000`; `F` kills or stops the holder |
 | Frontend or backend | the role next to the service name and the row icon (○ frontend, ● backend), from the process command line, the compose service name, the container image and what the HTTP probe sees (a dev server with hot reload, HTML, JSON, an OpenAPI path); a guess below 50 % confidence shows a `?`; `i` → Identity tab lists the reasons |
 | Kubernetes | `K` (dimmed in the footer when kubectl is missing); `← →` switch Pods / Services / Forwards, `N` picks a namespace from a list; tunnels appear as rows |
@@ -401,10 +436,11 @@ annotated reference.  The most useful keys:
 | `ui` | looks: `style`, `layout`, `glyphs` (block, braille or demoscene shades for sparklines, bars and row icons), `rounded_corners`, `row_icons` (role icon before the service name, source icon in SRC), `history_panel`, `clock` (strftime for the top bar and event times), `truecolor` (auto, on, off; applied at start). All in Settings under the Layout tab and in the setup wizard |
 | `cli` | `force_color`: keep colours when `lirts list` and friends are piped |
 | `insights` | stale threshold, restart warning, stopped-row and highlight-new minutes, `pattern_days` / `pattern_min` for the recurring-issue memory |
+| `daemon` | `idle_interval`: seconds between the daemon's own refreshes while no dashboard is attached (10); `lirts daemon --idle N` overrides it for one run |
 | `topology` | the star map's memory: `days` a star or line is kept after it was last seen (14), `usual_days` before a relation counts as usual and stays on the map while idle (3); learned only while lirts runs, persisted with the history, `lirts topology --clear` forgets |
 
-State (history, the last session's snapshot, patterns, the learned star map, `lirts.log`) lives in
-`~/.local/state/lirts`.
+State (history, the last session's snapshot, patterns, the learned star map, `lirts.log`, the
+daemon's socket and log) lives in `~/.local/state/lirts`.
 
 ## How it works
 
@@ -431,7 +467,8 @@ nettop (macOS) ──┘                 └──▶ HistoryStore (events, spar
   desktop notifications; `lirts/topology*.py` build and remember the star map.
 - `lirts/engine/` runs the pipeline off the UI thread; `lirts/tui/` renders it with
   Textual; `lirts/cli/` exposes it with Typer; `lirts/mcp_server.py` serves it to coding
-  agents over MCP.
+  agents over MCP; `lirts/daemon.py` serves one engine to all of them over a Unix socket and
+  `lirts/remote.py` is the engine they see when they attach.
 
 Design principles: high signal / low noise in the table, deep information one key away,
 every row answers "what is this, is it healthy, what should I do", best-effort everywhere

@@ -53,6 +53,7 @@ _TAB_BY_PREFIX: dict[str, str] = {
     "sources": "Collection",
     "history.": "Memory",
     "topology.": "Memory",
+    "daemon.": "Collection",
     "insights.pattern": "Memory",
     "insights.": "Insights",
     "thresholds.": "Insights",

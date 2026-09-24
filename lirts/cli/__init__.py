@@ -26,6 +26,7 @@ from lirts.cli.common import (
     err_console,
 )
 from lirts.cli.config_cmd import config_app
+from lirts.cli.daemon import daemon_app
 from lirts.cli.health import health_command, patterns_command, reach_command
 from lirts.cli.kube import _kube, kube_app
 from lirts.cli.listing import (
@@ -70,6 +71,7 @@ app.command("doctor")(doctor_command)
 app.command("mcp")(mcp_command)
 
 app.add_typer(config_app, name="config")
+app.add_typer(daemon_app, name="daemon")
 app.add_typer(stack_app, name="stack")
 app.add_typer(kube_app, name="kube")
 
@@ -91,6 +93,7 @@ __all__ = [
     "app",
     "config_app",
     "console",
+    "daemon_app",
     "doctor_command",
     "err_console",
     "explain_command",

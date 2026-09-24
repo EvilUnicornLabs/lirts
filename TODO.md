@@ -11,10 +11,16 @@ gitignored `local/` folder, not here.
    (a PR runs the job on the branch and once more on the merge); `CONTRIBUTING.md`, PR template,
    CLAUDE.md and the rules updated. Tags and the release flow (version bump, CHANGELOG cut, `vX.Y.Z`
    tag, GitHub release with sdist / wheel) come with the first release, item 4.
-2. [ ] Port the core logic to Go; TUI with Bubble Tea; optimise for very high port / process counts.
-3. [ ] Single-binary distribution for macOS and Linux.
-4. [ ] Publish to PyPI and finish the Homebrew tap (release flow, tags, GitHub releases).
-5. [ ] Per-process bandwidth on Linux (needs eBPF or root).
+2. [x] **The daemon** (decided and built 2026-09-24). `lirts daemon` / `lirts -d`: one engine for
+   the whole machine over a Unix socket in the state directory; the dashboard, the CLI and `lirts mcp`
+   attach to it when it runs (`--standalone` opts out); `lirts daemon install` starts it at login
+   (launchd, systemd), `status` / `stop` / `start` / `uninstall`; idle refresh `daemon.idle_interval`
+   (setting and `--idle`), attached dashboards drive faster refreshes; health on request only,
+   results kept in the daemon; doctor line; README with the Claude Code setup.
+3. [ ] Port the core logic to Go; TUI with Bubble Tea; optimise for very high port / process counts.
+4. [ ] Single-binary distribution for macOS and Linux.
+5. [ ] Publish to PyPI and finish the Homebrew tap (release flow, tags, GitHub releases).
+6. [ ] Per-process bandwidth on Linux (needs eBPF or root).
 
 Keep unchanged throughout: ports, processes, containers, stacks, identity, health, anomalies,
 blast radius, kill / restart / stop, traffic, who-talks-to-whom, proxies, Kubernetes, ssh, reach,

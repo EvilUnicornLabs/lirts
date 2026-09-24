@@ -19,6 +19,7 @@ from lirts.cli.common import (
     DockerOpt,
     ProbeOpt,
     ReplayOpt,
+    StandaloneOpt,
     SystemOpt,
     UdpOpt,
     _build_config,
@@ -28,6 +29,7 @@ from lirts.cli.common import (
     console,
     err_console,
 )
+from lirts.cli.daemon import run_daemon
 from lirts.engine import Engine
 from lirts.models import Snapshot
 from lirts.replay import parse_duration, record
@@ -54,12 +56,20 @@ def main(
     ] = False,
     demo: DemoOpt = False,
     replay: ReplayOpt = None,
+    standalone: StandaloneOpt = False,
+    daemon: Annotated[
+        bool,
+        typer.Option("--daemon", "-d", help="Run the daemon in the foreground (lirts daemon)."),
+    ] = False,
 ) -> None:
     """Launch the interactive dashboard (default) or run a sub-command."""
     if version:
         console.print(f"lirts {__version__}  ({Path(lirts.__file__).parent})")
         raise typer.Exit()
     if ctx.invoked_subcommand is not None:
+        return
+    if daemon:
+        run_daemon(config, docker=docker, probe=probe, demo=demo, debug=debug)
         return
     _setup_logging(debug)
     cfg = _build_config(
@@ -71,7 +81,7 @@ def main(
     # Textual is a heavy import: the sub-commands that only print text must not pay for it.
     from lirts.tui.app import run_app
 
-    run_app(_make_engine(cfg, demo=demo, replay=replay), config=cfg)
+    run_app(_make_engine(cfg, demo=demo, replay=replay, standalone=standalone), config=cfg)
 
 
 def tui_command(
@@ -84,6 +94,7 @@ def tui_command(
     debug: DebugOpt = False,
     demo: DemoOpt = False,
     replay: ReplayOpt = None,
+    standalone: StandaloneOpt = False,
 ) -> None:
     """Launch the interactive dashboard (same as running lirts with no command)."""
     _setup_logging(debug)
@@ -94,7 +105,7 @@ def tui_command(
     # Textual is a heavy import: the sub-commands that only print text must not pay for it.
     from lirts.tui.app import run_app
 
-    run_app(_make_engine(cfg, demo=demo, replay=replay), config=cfg)
+    run_app(_make_engine(cfg, demo=demo, replay=replay, standalone=standalone), config=cfg)
 
 
 def record_command(

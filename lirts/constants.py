@@ -173,3 +173,14 @@ CPU_SAMPLE_GAP_SECONDS = 0.6
 PATTERN_SERVICES_SHOWN = 4
 # Pod names printed when a name prefix matches more than one pod.
 AMBIGUOUS_POD_NAMES_SHOWN = 6
+
+# ----- daemon -------------------------------------------------------------------------
+# Seconds the daemon waits between its own refreshes while no dashboard is attached
+# (``daemon.idle_interval``); an attached client drives faster refreshes itself.
+DAEMON_IDLE_INTERVAL = 10.0
+# Seconds a client waits for the daemon's answer to one request (a refresh can be slow).
+DAEMON_CALL_TIMEOUT = 30.0
+# Seconds ``ping`` waits before deciding that nothing listens on the socket.
+DAEMON_PING_TIMEOUT = 1.0
+# Bytes of one response line a client accepts (a frame carries every row and the graph).
+DAEMON_MAX_LINE = 64 * 1024 * 1024

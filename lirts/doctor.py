@@ -8,6 +8,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib.metadata import version
@@ -31,6 +32,8 @@ from lirts.constants import (
     KUBECTL_READY_TIMEOUT,
     SIDE_PANEL_MIN_TERMINAL_WIDTH,
 )
+from lirts.daemon_client import ping, socket_path
+from lirts.insights_explain import format_duration
 
 
 class CheckStatus(StrEnum):
@@ -326,8 +329,28 @@ def run_all(config: Path | None = None) -> list[Check]:
     editor_check = check_editor(config)
     if editor_check is not None:
         checks.append(editor_check)
+    checks.append(check_daemon())
     checks.append(check_mcp())
     return checks
+
+
+def check_daemon() -> Check:
+    """Whether a `lirts daemon` is running; dashboards, the CLI and `lirts mcp` attach to it."""
+    info = ping(socket_path())
+    if info is None:
+        return Check(
+            "daemon",
+            OK,
+            "not running; every lirts command runs its own engine "
+            "(`lirts daemon install` starts one at login)",
+        )
+    up = format_duration(time.time() - float(info.get("started", time.time())))
+    return Check(
+        "daemon",
+        OK,
+        f"running, PID {info.get('pid')}, up {up}, {info.get('refreshes')} refreshes; "
+        "dashboards, the CLI and lirts mcp attach to it",
+    )
 
 
 def check_mcp() -> Check:
