@@ -54,6 +54,9 @@ lirts = "lirts.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/EvilUnicornLabs/lirts"
+Repository = "https://github.com/EvilUnicornLabs/lirts"
+Issues = "https://github.com/EvilUnicornLabs/lirts/issues"
+Changelog = "https://github.com/EvilUnicornLabs/lirts/blob/master/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["lirts*"]

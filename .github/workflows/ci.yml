@@ -1,6 +1,6 @@
 name: CI
 
-# Cost rules for this private repo: every minute is billed and macOS counts 10x.
+# Cost rules for this repo: every Actions minute is billed and macOS counts 10x.
 # - a push runs ONE Ubuntu job (lint, format, types, tests, smoke, file length, secret scan):
 #   about 2 billed minutes; the same list is `make ci-local`
 # - the full matrix (three Python versions, macOS) runs only when started by hand

@@ -136,7 +136,7 @@ have five projects, three of them in Docker, and something on port 5432 is not w
 Requires Python 3.11+ on macOS or Linux.  Docker integration is optional and detected at runtime.
 
 ```bash
-pipx install .            # from a checkout; or: pip install .
+pipx install git+https://github.com/EvilUnicornLabs/lirts   # or, from a checkout: pipx install .
 lirts                     # launch the dashboard
 pipx inject lirts mcp     # optional: the MCP server for coding agents (pip: pip install '.[mcp]')
 ```
@@ -469,6 +469,11 @@ nettop (macOS) ──┘                 └──▶ HistoryStore (events, spar
   Textual; `lirts/cli/` exposes it with Typer; `lirts/mcp_server.py` serves it to coding
   agents over MCP; `lirts/daemon.py` serves one engine to all of them over a Unix socket and
   `lirts/remote.py` is the engine they see when they attach.
+
+Built with [Textual](https://github.com/Textualize/textual) and [Rich](https://github.com/Textualize/rich)
+for the terminal, [Typer](https://github.com/fastapi/typer) for the CLI, [psutil](https://github.com/giampaolo/psutil)
+for sockets and processes, the [Docker SDK](https://github.com/docker/docker-py), [aiohttp](https://github.com/aio-libs/aiohttp)
+for the probes and the [MCP SDK](https://github.com/modelcontextprotocol/python-sdk) for coding agents. Thank you.
 
 Design principles: high signal / low noise in the table, deep information one key away,
 every row answers "what is this, is it healthy, what should I do", best-effort everywhere
