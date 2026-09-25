@@ -17,11 +17,16 @@ gitignored `local/` folder, not here.
    (launchd, systemd), `status` / `stop` / `start` / `uninstall`; idle refresh `daemon.idle_interval`
    (setting and `--idle`), attached dashboards drive faster refreshes; health on request only,
    results kept in the daemon; doctor line; README with the Claude Code setup.
-3. [ ] Port the core logic to Go; TUI with Bubble Tea; optimise for very high port / process counts.
-4. [ ] Single-binary distribution for macOS and Linux. A bundled binary redistributes the
+3. [x] **Publish** (2026-09-25): version 0.7.0, CHANGELOG cut; the release workflow (on a `v*`
+   tag, one Ubuntu job) builds sdist and wheel, publishes to PyPI through trusted publishing
+   (environment `pypi`, no token) and creates the GitHub release; the Homebrew formula (Apache-2.0,
+   `mcp` extra included) lives in the tap `EvilUnicornLabs/homebrew-lirts`, updated by hand per
+   release from the sha256 the workflow prints; README installation from PyPI, brew, GitHub and a
+   checkout; `install.sh` installs from PyPI.
+4. [ ] Port the core logic to Go; TUI with Bubble Tea; optimise for very high port / process counts.
+5. [ ] Single-binary distribution for macOS and Linux. A bundled binary redistributes the
    dependencies, so the build generates a `THIRD_PARTY_LICENSES` file (for example with `pip-licenses`)
    and ships it next to the binary; the source tree itself vendors nothing and needs none.
-5. [ ] Publish to PyPI and finish the Homebrew tap (release flow, tags, GitHub releases).
 6. [ ] Per-process bandwidth on Linux (needs eBPF or root).
 
 Keep unchanged throughout: ports, processes, containers, stacks, identity, health, anomalies,

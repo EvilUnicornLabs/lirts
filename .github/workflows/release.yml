@@ -1,5 +1,10 @@
 name: Release
 
+# Runs on a version tag only (one Ubuntu job, about two billed minutes per release):
+# build sdist and wheel, smoke-test the wheel, publish to PyPI through trusted publishing
+# (environment `pypi`, no token stored anywhere) and create the GitHub release with the
+# artefacts and the sha256 of the source tarball for the Homebrew formula.
+
 on:
   push:
     tags: ["v*"]
@@ -7,8 +12,11 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: pypi
     permissions:
-      contents: write
+      contents: write   # the GitHub release
+      id-token: write   # PyPI trusted publishing
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,11 +24,25 @@ jobs:
           python-version: "3.12"
       - run: pip install build
       - run: python -m build
-      - name: Compute tarball sha256 for the Homebrew formula
+      - name: Smoke-test the wheel
         run: |
+          pip install dist/*.whl
+          lirts --version
+          lirts explain --demo > /dev/null
+      - name: Compute the source tarball sha256 for the Homebrew formula
+        run: |
+          mkdir -p notes
           curl -sL "https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz" -o source.tar.gz
-          sha256sum source.tar.gz | tee dist/source.tar.gz.sha256
+          sha256sum source.tar.gz | tee notes/source.tar.gz.sha256
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          print-hash: true
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            notes/source.tar.gz.sha256
           generate_release_notes: true
