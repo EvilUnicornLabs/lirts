@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 # One-line installer:  curl -fsSL https://raw.githubusercontent.com/EvilUnicornLabs/lirts/master/install.sh | sh
-# Installs pipx if needed, then lirts from GitHub (or from a local checkout when run inside one).
+# Installs pipx if needed, then lirts from PyPI (from a local checkout when run inside one;
+# LIRTS_REPO=https://github.com/EvilUnicornLabs/lirts installs from git instead).
 set -eu
 
-REPO="${LIRTS_REPO:-https://github.com/EvilUnicornLabs/lirts}"
+REPO="${LIRTS_REPO:-}"
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -23,9 +24,12 @@ fi
 if [ -f "pyproject.toml" ] && grep -q '^name = "lirts"' pyproject.toml; then
   echo "Installing lirts from this checkout..."
   pipx install --force .
-else
+elif [ -n "$REPO" ]; then
   echo "Installing lirts from $REPO ..."
   pipx install --force "git+${REPO}.git"
+else
+  echo "Installing lirts from PyPI..."
+  pipx install --force lirts
 fi
 
 echo

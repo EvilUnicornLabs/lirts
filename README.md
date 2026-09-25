@@ -136,16 +136,24 @@ have five projects, three of them in Docker, and something on port 5432 is not w
 Requires Python 3.11+ on macOS or Linux.  Docker integration is optional and detected at runtime.
 
 ```bash
-pipx install git+https://github.com/EvilUnicornLabs/lirts   # or, from a checkout: pipx install .
-lirts                     # launch the dashboard
-pipx inject lirts mcp     # optional: the MCP server for coding agents (pip: pip install '.[mcp]')
+pipx install lirts               # from PyPI; pipx install 'lirts[mcp]' adds the MCP server for coding agents
+lirts                            # launch the dashboard
 ```
 
-One-liner without a checkout (installs pipx if needed):
+Homebrew:
+
+```bash
+brew tap evilunicornlabs/lirts && brew install lirts   # the MCP server is included
+```
+
+One-liner (installs pipx if needed, then lirts from PyPI):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/EvilUnicornLabs/lirts/master/install.sh | sh
 ```
+
+From GitHub or a checkout instead of PyPI: `pipx install git+https://github.com/EvilUnicornLabs/lirts`
+or `pipx install .`; `pipx inject lirts mcp` adds the MCP server to either.
 
 Shell completion for bash, zsh or fish:
 
@@ -153,10 +161,10 @@ Shell completion for bash, zsh or fish:
 lirts --install-completion
 ```
 
-Homebrew: a formula lives in [packaging/homebrew/lirts.rb](packaging/homebrew/lirts.rb); once a
-release tag exists, fill in the tarball checksum, run `brew update-python-resources` and publish it
-in a tap (`brew tap <you>/lirts && brew install lirts`). GitHub Actions in `.github/workflows`
-run the checks on macOS and Linux and build the sdist and wheel for tagged releases.
+Releases: a `vX.Y.Z` tag builds the sdist and wheel, publishes them to PyPI and creates the
+GitHub release; the Homebrew formula in the tap
+([EvilUnicornLabs/homebrew-lirts](https://github.com/EvilUnicornLabs/homebrew-lirts)) follows,
+from the template in [packaging/homebrew/lirts.rb](packaging/homebrew/lirts.rb).
 
 For development:
 

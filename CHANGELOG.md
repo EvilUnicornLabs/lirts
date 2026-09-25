@@ -6,7 +6,15 @@ All notable changes to lirts are documented here.  The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-25
+
+The first public release, under the Apache License 2.0.
+
 ### Added
+- Release flow: a `vX.Y.Z` tag runs the release workflow, which builds the sdist and the wheel,
+  publishes them to PyPI through trusted publishing and creates the GitHub release with the
+  artefacts and the source tarball's sha256 for the Homebrew formula. `pipx install lirts`,
+  `brew tap evilunicornlabs/lirts && brew install lirts`; `install.sh` installs from PyPI.
 - The daemon: `lirts daemon` (`lirts -d`) runs one engine for the whole machine over a Unix
   socket in the state directory; the dashboard, every CLI command and `lirts mcp` attach to it
   when it runs (`--standalone` opts out), so there is one collector, one history and one star

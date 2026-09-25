@@ -73,9 +73,14 @@ price) runs only by hand from the Actions tab.
 
 Versions follow [Semantic Versioning](https://semver.org/) and the CHANGELOG follows
 [Keep a Changelog](https://keepachangelog.com/): every change is written under `Unreleased`
-in the commit that makes it, removals with the reason. The release flow (version bump,
-CHANGELOG cut, `vX.Y.Z` tag, GitHub release with sdist and wheel, PyPI and the Homebrew tap) is
-defined with the first release; until then there are no tags.
+in the commit that makes it, removals with the reason. A release is a `chores/release-x.y.z`
+pull request (version in `pyproject.toml` and `lirts/__init__.py`, the `Unreleased` section
+cut into `[x.y.z] - date`) and, after its merge, the tag `vx.y.z` pushed by the maintainer. The
+tag runs the release workflow: sdist and wheel, a smoke test of the wheel, PyPI through trusted
+publishing (environment `pypi`, no token), the GitHub release with the artefacts and the source
+tarball's sha256. The Homebrew formula in the tap is updated by hand from that sha256
+(`packaging/homebrew/lirts.rb` is the template). One Ubuntu job per release, about two billed
+minutes.
 
 ## Reporting a problem
 
