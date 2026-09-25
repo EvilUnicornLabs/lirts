@@ -96,6 +96,8 @@ All notable changes to lirts are documented here.  The format follows
   CI and is mandatory before a push; both are enforced by the next change.
 
 ### Changed
+- Project URLs (repository, issues, changelog) in the package metadata; README thanks the
+  libraries lirts is built with and shows the install from GitHub.
 - Git conventions: `master` is protected and only changes through squash-merged pull requests
   from `feature/`, `fix/`, `docs/`, `chores/` or `improvement/` branches, one per finished TODO
   item, commit subject `<type>: <summary>`, the one CI job as a required check; `CONTRIBUTING.md`,

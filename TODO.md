@@ -18,7 +18,9 @@ gitignored `local/` folder, not here.
    (setting and `--idle`), attached dashboards drive faster refreshes; health on request only,
    results kept in the daemon; doctor line; README with the Claude Code setup.
 3. [ ] Port the core logic to Go; TUI with Bubble Tea; optimise for very high port / process counts.
-4. [ ] Single-binary distribution for macOS and Linux.
+4. [ ] Single-binary distribution for macOS and Linux. A bundled binary redistributes the
+   dependencies, so the build generates a `THIRD_PARTY_LICENSES` file (for example with `pip-licenses`)
+   and ships it next to the binary; the source tree itself vendors nothing and needs none.
 5. [ ] Publish to PyPI and finish the Homebrew tap (release flow, tags, GitHub releases).
 6. [ ] Per-process bandwidth on Linux (needs eBPF or root).
 
