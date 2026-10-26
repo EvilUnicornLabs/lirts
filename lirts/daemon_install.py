@@ -61,13 +61,26 @@ def executable() -> str | None:
     """The ``lirts`` command the service should run: the one running this install.
 
     The program that was started is preferred over the first ``lirts`` on PATH, so a Homebrew
-    install registers the Homebrew binary even while an older one is still on PATH.
+    install registers the Homebrew binary even while an older one is still on PATH.  A binary
+    inside Homebrew's Cellar is registered through the versionless link in the prefix's ``bin``
+    (``/opt/homebrew/bin/lirts``), because ``brew upgrade`` removes the old Cellar directory and
+    the launch agent would otherwise point at nothing until the next ``lirts daemon install``.
     """
     if sys.argv and Path(sys.argv[0]).name == "lirts":
         program = Path(sys.argv[0])
         if program.exists():
-            return str(program.resolve())
+            return str(stable_path(program.resolve()))
     return shutil.which("lirts")
+
+
+def stable_path(program: Path) -> Path:
+    """``<prefix>/bin/lirts`` for a program inside Homebrew's Cellar, else the program itself."""
+    parts = program.parts
+    if "Cellar" not in parts:
+        return program
+    prefix = Path(*parts[: parts.index("Cellar")])
+    link = prefix / "bin" / "lirts"
+    return link if link.exists() else program
 
 
 def render(kind: str, exe: str, log: Path) -> str:
