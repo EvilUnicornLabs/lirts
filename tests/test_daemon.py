@@ -15,13 +15,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from mcp.client import Client
 from typer.testing import CliRunner
 
-from lirts import cli, daemon_install
+from lirts import cli
 from lirts.cli import common
 from lirts.cli import daemon as daemon_cmd
 from lirts.config import DEFAULT_CONFIG, validate
-from lirts.daemon import DaemonServer
+from lirts.daemon import DaemonServer, raise_fd_limit
 from lirts.daemon_client import DaemonClient, DaemonError, ping
 from lirts.demo import DemoEngine
 from lirts.doctor import OK, check_daemon
@@ -269,66 +270,6 @@ def test_idle_interval_setting_round_trips(tmp_path: Path) -> None:
     assert "idle_interval: 30" in shown.output
 
 
-@pytest.mark.parametrize("system", ["Darwin", "Linux"], ids=["launchd", "systemd"])
-def test_install_writes_the_service_file_and_loads_it(tmp_path: Path, system: str) -> None:
-    ran: list[list[str]] = []
-    mgr = daemon_install.manager(system, home=tmp_path)
-    assert mgr is not None
-
-    ok, message = daemon_install.install(
-        mgr, exe="/opt/bin/lirts", run=lambda c: ran.append(c) or (0, "")
-    )
-    text = mgr.file.read_text()
-    gone, _ = daemon_install.uninstall(mgr, run=lambda c: ran.append(c) or (0, ""))
-
-    assert ok and message.startswith(f"installed {mgr.file}")
-    assert "/opt/bin/lirts" in text and "daemon" in text
-    if system == "Darwin":
-        assert mgr.file.name == "fi.evilunicorn.lirts.plist" and "<key>RunAtLoad</key>" in text
-        assert ran[0] == ["launchctl", "load", "-w", str(mgr.file)]
-        assert ran[1] == ["launchctl", "unload", "-w", str(mgr.file)]
-    else:
-        assert mgr.file.name == "lirts.service" and "WantedBy=default.target" in text
-        assert ran[:2] == [
-            ["systemctl", "--user", "daemon-reload"],
-            ["systemctl", "--user", "enable", "--now", "lirts"],
-        ]
-    assert gone and not mgr.file.exists()
-
-
-def test_install_reports_a_refusing_service_manager(tmp_path: Path) -> None:
-    mgr = daemon_install.manager("Darwin", home=tmp_path)
-    assert mgr is not None
-
-    ok, message = daemon_install.install(mgr, exe="/opt/bin/lirts", run=lambda c: (1, "nope"))
-
-    assert ok is False and message.endswith("refused it: nope")
-
-
-def test_start_and_stop_need_an_installed_service(tmp_path: Path) -> None:
-    mgr = daemon_install.manager("Linux", home=tmp_path)
-    assert mgr is not None and daemon_install.manager("Windows", home=tmp_path) is None
-
-    assert daemon_install.start(mgr) == (False, "not installed; run `lirts daemon install` first")
-    assert daemon_install.stop(mgr) == (False, "not installed")
-
-
-def test_install_command_end_to_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    mgr = daemon_install.manager("Darwin", home=tmp_path)
-    ran: list[list[str]] = []
-    monkeypatch.setattr(daemon_cmd.daemon_install, "manager", lambda: mgr)
-    monkeypatch.setattr(daemon_cmd.daemon_install, "executable", lambda: "/opt/bin/lirts")
-    # The real service manager is never reached: the stub records what would have run.
-    monkeypatch.setattr(daemon_cmd.daemon_install, "_run", lambda c: ran.append(c) or (0, ""))
-
-    result = runner.invoke(cli.app, ["daemon", "install"])
-
-    assert result.exit_code == 0, result.output
-    assert "the daemon starts now" in result.output  # Rich wraps the long line
-    assert mgr is not None and mgr.file.exists()
-    assert ran == [["launchctl", "load", "-w", str(mgr.file)]]
-
-
 def test_doctor_reports_the_daemon(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("lirts.doctor.ping", lambda path: None)
     idle = check_daemon()
@@ -339,3 +280,65 @@ def test_doctor_reports_the_daemon(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert idle.status == OK and idle.detail.startswith("not running; every lirts command")
     assert running.status == OK and running.detail.startswith("running, PID 7, up ")
+
+
+# ----- the daemon as the MCP server ------------------------------------------------------
+
+
+def _free_port() -> int:
+    import socket
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+@pytest.fixture
+async def served_http(sock: Path) -> AsyncIterator[DaemonServer]:
+    """A daemon over the demo machine that also serves MCP over HTTP on a free port."""
+    server = DaemonServer(
+        DemoEngine(_cfg(show_udp=True)),
+        socket_path=sock,
+        idle_interval=60.0,
+        mcp_port=_free_port(),
+    )
+    task = asyncio.create_task(server.serve())
+    for _ in range(200):
+        if server.refreshes and server.mcp_url and await asyncio.to_thread(ping, sock):
+            break
+        await asyncio.sleep(0.02)
+    await asyncio.sleep(0.3)  # uvicorn needs a moment after the task starts
+    yield server
+    await server.stop({})
+    await task
+
+
+async def test_daemon_serves_mcp_over_http_on_the_loopback(served_http: DaemonServer) -> None:
+    url = served_http.mcp_url
+    assert url == f"http://127.0.0.1:{served_http.mcp_port}/mcp"
+
+    async with Client(url) as client:
+        tools = await client.list_tools()
+        who = await client.call_tool("who", {"port": 5432})
+    info = await served_http.hello({})
+
+    assert [t.name for t in tools.tools][:3] == ["list_listeners", "who", "explain"]
+    assert "free_port" not in [t.name for t in tools.tools]  # read-only without --allow-actions
+    assert who.structured_content["service"] == "PostgreSQL"
+    assert info["mcp_url"] == url and info["allow_actions"] is False
+
+
+async def test_daemon_without_a_port_has_no_endpoint(served: DaemonServer) -> None:
+    info = await served.hello({})
+
+    assert served.mcp_url is None and info["mcp_url"] is None
+
+
+def test_raise_fd_limit_never_lowers_the_limit() -> None:
+    import resource
+
+    before = resource.getrlimit(resource.RLIMIT_NOFILE)[0]
+
+    after = raise_fd_limit()
+
+    assert after >= min(before, 65536)

@@ -17,6 +17,7 @@ import contextlib
 import json
 import logging
 import os
+import resource
 import signal
 import time
 from collections.abc import Awaitable, Callable
@@ -25,8 +26,10 @@ from pathlib import Path
 from typing import Any
 
 from lirts import __version__
+from lirts.constants import DAEMON_FD_LIMIT
 from lirts.daemon_client import ping
 from lirts.engine import Engine
+from lirts.mcp_server import build_server, http_url, mcp_available, serve_http
 from lirts.models import Level
 from lirts.replay import snapshot_to_dict, to_jsonable
 
@@ -35,13 +38,38 @@ log = logging.getLogger(__name__)
 Handler = Callable[[dict[str, Any]], Awaitable[Any]]
 
 
+def raise_fd_limit(wanted: int = DAEMON_FD_LIMIT) -> int:
+    """Lift the soft open-files limit towards ``wanted``; launchd starts processes at 256.
+
+    Every client connection costs a descriptor, and eight agent sessions plus a dashboard
+    exceed 256 during a slow refresh.  Returns the limit in force afterwards.
+    """
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    target = wanted if hard == resource.RLIM_INFINITY else min(wanted, hard)
+    if target > soft:
+        with contextlib.suppress(OSError, ValueError):
+            resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
+    return resource.getrlimit(resource.RLIMIT_NOFILE)[0]
+
+
 class DaemonServer:
     """The socket server around one engine."""
 
-    def __init__(self, engine: Engine, *, socket_path: Path, idle_interval: float) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        *,
+        socket_path: Path,
+        idle_interval: float,
+        mcp_port: int = 0,
+        allow_actions: bool = False,
+    ) -> None:
         self.engine = engine
         self.socket_path = socket_path
         self.idle_interval = idle_interval
+        self.mcp_port = mcp_port
+        self.allow_actions = allow_actions
+        self.mcp_url: str | None = None
         self.started = time.time()
         self.refreshes = 0
         self.last_client = 0.0
@@ -74,23 +102,54 @@ class DaemonServer:
         for sig in (signal.SIGTERM, signal.SIGINT):
             with contextlib.suppress(NotImplementedError, RuntimeError):
                 loop.add_signal_handler(sig, self._stop.set)
+        raise_fd_limit()
         self.engine.start()
         self._server = await asyncio.start_unix_server(self._handle, path=str(self.socket_path))
         os.chmod(self.socket_path, 0o600)  # the socket can kill processes: owner only
         log.info("daemon listening on %s (PID %s)", self.socket_path, os.getpid())
         refresher = asyncio.create_task(self._loop())
+        mcp_task = self._start_mcp()
         try:
             await self._stop.wait()
         finally:
-            refresher.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await refresher
+            for task in (refresher, mcp_task):
+                if task is not None:
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
             self._server.close()
             await self._server.wait_closed()
             with contextlib.suppress(FileNotFoundError):
                 self.socket_path.unlink()
             self.engine.close()
             log.info("daemon stopped")
+
+    def _start_mcp(self) -> asyncio.Task[None] | None:
+        """Serve the MCP tools over HTTP on the loopback interface, when a port is set."""
+        if not self.mcp_port:
+            return None
+        if not mcp_available():
+            log.warning("daemon.mcp_port is set but the mcp SDK is not installed (lirts[mcp])")
+            return None
+        server = build_server(
+            self.engine,
+            refresh_interval=self.engine.cfg.refresh_interval,
+            allow_actions=self.allow_actions,
+            own_loop=False,
+        )
+        self.mcp_url = http_url(self.mcp_port)
+        log.info("MCP endpoint at %s", self.mcp_url)
+
+        async def run() -> None:
+            try:
+                await serve_http(server, port=self.mcp_port)
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # the socket side keeps working without the endpoint
+                log.exception("MCP endpoint on port %s failed", self.mcp_port)
+                self.mcp_url = None
+
+        return asyncio.create_task(run())
 
     async def _loop(self) -> None:
         """Refresh on the idle cadence; attached clients ask for fresher frames themselves."""
@@ -149,6 +208,8 @@ class DaemonServer:
             "idle_interval": self.idle_interval,
             "last_client": self.last_client,
             "demo": bool(getattr(self.engine, "demo", False)),
+            "mcp_url": self.mcp_url,
+            "allow_actions": self.allow_actions,
         }
 
     async def hello(self, _params: dict[str, Any]) -> dict[str, Any]:

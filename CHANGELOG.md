@@ -6,6 +6,27 @@ All notable changes to lirts are documented here.  The format follows
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-26
+
+### Added
+- The daemon serves MCP itself: `http://127.0.0.1:7421/mcp` (`daemon.mcp_port`, `--mcp-port`,
+  0 = off), read-only unless started with `--allow-actions`. One `.mcp.json` entry of the
+  `url` kind in every project, no `lirts mcp` process per session. `lirts daemon status` and
+  `lirts doctor` show the endpoint.
+
+### Fixed
+- `lirts mcp` as a client of the daemon no longer runs a refresh loop: it pulls a frame only
+  when a tool is called and the last one is older than `refresh_interval`. Eight idle agent
+  sessions cost the daemon four frames a second and ten percent CPU each before.
+- The daemon raises its open-files limit (launchd starts it with 256); eight clients and a
+  dashboard could exhaust it and every client logged a traceback per failed call.
+- Logs rotate at 5 MB with three copies; `lirts mcp` writes `mcp.log` instead of sharing
+  `lirts.log` with the dashboard. The daemon drops macOS malloc debugging variables from its
+  environment so spawned commands (`nettop`, `docker`) stop printing a notice per call.
+- `lirts daemon install` registers the binary that ran it (the Homebrew one, even while an
+  older install is still first on PATH) and waits for the daemon to answer before printing
+  its status.
+
 ## [0.7.0] - 2026-09-25
 
 The first public release, under the Apache License 2.0.

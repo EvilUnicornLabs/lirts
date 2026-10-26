@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -20,6 +21,8 @@ from lirts.config import load_config, state_dir
 from lirts.config_view import ConfigView
 from lirts.constants import (
     CPU_SAMPLE_GAP_SECONDS,
+    LOG_BACKUPS,
+    LOG_MAX_BYTES,
     MIN_REFRESH_INTERVAL,
     PIPED_CONSOLE_WIDTH,
 )
@@ -61,12 +64,21 @@ StandaloneOpt = Annotated[
 ]
 
 
-def _setup_logging(debug: bool) -> None:
-    """Send the ``lirts`` logger to lirts.log in the state directory."""
+def _setup_logging(debug: bool, *, name: str = "lirts") -> None:
+    """Send the ``lirts`` logger to ``<name>.log`` in the state directory, rotated.
+
+    The dashboard and the CLI share ``lirts.log``; ``lirts mcp`` writes ``mcp.log`` so that
+    several agent sessions never interleave with the dashboard's log.
+    """
     folder = state_dir()
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        handler: logging.Handler = logging.FileHandler(folder / "lirts.log", encoding="utf-8")
+        handler: logging.Handler = RotatingFileHandler(
+            folder / f"{name}.log",
+            maxBytes=LOG_MAX_BYTES,
+            backupCount=LOG_BACKUPS,
+            encoding="utf-8",
+        )
     except OSError:
         handler = logging.NullHandler()
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))

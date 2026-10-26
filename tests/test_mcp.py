@@ -310,3 +310,47 @@ def test_doctor_reports_whether_the_mcp_sdk_is_there(monkeypatch, installed: boo
 def test_doctor_runs_the_mcp_check_last() -> None:
     assert mcp_available()
     assert run_all()[-1].name == "mcp"
+
+
+# ----- behind a daemon: no loop, a frame per call ----------------------------------------
+
+
+async def test_server_without_its_own_loop_refreshes_only_when_a_call_finds_a_stale_frame() -> None:
+    cfg = validate(dict(DEFAULT_CONFIG))
+    cfg["refresh_interval"] = 60.0
+    engine = DemoEngine(cfg)
+    server = build_server(engine, refresh_interval=60.0, own_loop=False)
+    state = server.lirts_state
+
+    async with Client(server) as client:
+        first = await client.call_tool("who", {"port": 5432})
+        second = await client.call_tool("events", {"limit": 1})
+        engine.snapshot.timestamp -= 61  # the frame aged past the interval
+        third = await client.call_tool("events", {"limit": 1})
+
+    assert state.own_loop is False and state._task is None
+    assert first.structured_content["service"] == "PostgreSQL"
+    assert second.is_error is False and third.is_error is False
+    assert state.refreshes == 2  # the first call and the one after the frame went stale
+    assert engine.snapshot.listeners  # no lifespan: the engine is not closed by the server
+    engine.close()
+
+
+def test_mcp_command_behind_a_daemon_runs_without_a_loop(monkeypatch) -> None:
+    served: list[Any] = []
+
+    async def fake_serve(server: Any) -> None:
+        served.append(server)
+
+    def remote_engine(cfg: dict[str, Any], **kw: Any) -> Any:
+        engine = DemoEngine(cfg)
+        engine.remote = True  # what RemoteEngine sets
+        return engine
+
+    monkeypatch.setattr(mcp_cmd, "serve_stdio", fake_serve)
+    monkeypatch.setattr(mcp_cmd, "_make_engine", remote_engine)
+
+    result = runner.invoke(cli.app, ["mcp"])
+
+    assert result.exit_code == 0, result.output
+    assert served[0].lirts_state.own_loop is False

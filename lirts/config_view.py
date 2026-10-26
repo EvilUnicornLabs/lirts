@@ -108,6 +108,10 @@ class DaemonSection(_Section):
     def idle_interval(self) -> float:
         return self._float("idle_interval")
 
+    @property
+    def mcp_port(self) -> int:
+        return self._int("mcp_port")
+
 
 class TopologySection(_Section):
     name = "topology"

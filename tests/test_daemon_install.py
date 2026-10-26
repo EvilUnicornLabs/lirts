@@ -1,0 +1,127 @@
+"""Starting the daemon at login: the service files, the fake service manager, the install
+command and the environment the daemon runs with."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from typer.testing import CliRunner
+
+from lirts import cli, daemon_install
+from lirts.cli import daemon as daemon_cmd
+
+runner = CliRunner()
+
+
+@pytest.mark.parametrize("system", ["Darwin", "Linux"], ids=["launchd", "systemd"])
+def test_install_writes_the_service_file_and_loads_it(tmp_path: Path, system: str) -> None:
+    ran: list[list[str]] = []
+    mgr = daemon_install.manager(system, home=tmp_path)
+    assert mgr is not None
+
+    ok, message = daemon_install.install(
+        mgr, exe="/opt/bin/lirts", run=lambda c: ran.append(c) or (0, "")
+    )
+    text = mgr.file.read_text()
+    gone, _ = daemon_install.uninstall(mgr, run=lambda c: ran.append(c) or (0, ""))
+
+    assert ok and message.startswith(f"installed {mgr.file}")
+    assert "/opt/bin/lirts" in text and "daemon" in text
+    if system == "Darwin":
+        assert mgr.file.name == "fi.evilunicorn.lirts.plist" and "<key>RunAtLoad</key>" in text
+        assert ran[0] == ["launchctl", "load", "-w", str(mgr.file)]
+        assert ran[1] == ["launchctl", "unload", "-w", str(mgr.file)]
+    else:
+        assert mgr.file.name == "lirts.service" and "WantedBy=default.target" in text
+        assert ran[:2] == [
+            ["systemctl", "--user", "daemon-reload"],
+            ["systemctl", "--user", "enable", "--now", "lirts"],
+        ]
+    assert gone and not mgr.file.exists()
+
+
+def test_install_reports_a_refusing_service_manager(tmp_path: Path) -> None:
+    mgr = daemon_install.manager("Darwin", home=tmp_path)
+    assert mgr is not None
+
+    ok, message = daemon_install.install(mgr, exe="/opt/bin/lirts", run=lambda c: (1, "nope"))
+
+    assert ok is False and message.endswith("refused it: nope")
+
+
+def test_start_and_stop_need_an_installed_service(tmp_path: Path) -> None:
+    mgr = daemon_install.manager("Linux", home=tmp_path)
+    assert mgr is not None and daemon_install.manager("Windows", home=tmp_path) is None
+
+    assert daemon_install.start(mgr) == (False, "not installed; run `lirts daemon install` first")
+    assert daemon_install.stop(mgr) == (False, "not installed")
+
+
+def test_install_command_end_to_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    mgr = daemon_install.manager("Darwin", home=tmp_path)
+    ran: list[list[str]] = []
+    monkeypatch.setattr(daemon_cmd.daemon_install, "manager", lambda: mgr)
+    monkeypatch.setattr(daemon_cmd.daemon_install, "executable", lambda: "/opt/bin/lirts")
+    # The real service manager is never reached: the stub records what would have run.
+    monkeypatch.setattr(daemon_cmd.daemon_install, "_run", lambda c: ran.append(c) or (0, ""))
+
+    result = runner.invoke(cli.app, ["daemon", "install"])
+
+    assert result.exit_code == 0, result.output
+    assert "the daemon starts now" in result.output  # Rich wraps the long line
+    assert mgr is not None and mgr.file.exists()
+    assert ran == [["launchctl", "load", "-w", str(mgr.file)]]
+
+
+def test_executable_prefers_the_program_that_runs_the_install(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    program = tmp_path / "lirts"
+    program.write_text("#!/bin/sh\n")
+    monkeypatch.setattr("sys.argv", [str(program), "daemon", "install"])
+    monkeypatch.setattr("shutil.which", lambda name: "/elsewhere/lirts")
+
+    assert daemon_install.executable() == str(program.resolve())
+
+    monkeypatch.setattr("sys.argv", ["python", "-m", "lirts"])
+    assert daemon_install.executable() == "/elsewhere/lirts"
+
+
+def test_strip_debug_env_drops_malloc_variables(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MallocStackLogging", "0")
+    monkeypatch.setenv("MallocNanoZone", "0")
+    monkeypatch.setenv("PATH", "/usr/bin")
+
+    daemon_cmd.strip_debug_env()
+
+    import os
+
+    assert "MallocStackLogging" not in os.environ and "MallocNanoZone" not in os.environ
+    assert os.environ["PATH"] == "/usr/bin"
+
+
+def test_install_command_waits_for_the_daemon_and_prints_its_status(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mgr = daemon_install.manager("Darwin", home=tmp_path)
+    info = {
+        "pid": 9,
+        "version": "0.7.1",
+        "started": 0.0,
+        "refreshes": 1,
+        "idle_interval": 10.0,
+        "mcp_url": "http://127.0.0.1:7421/mcp",
+        "allow_actions": False,
+    }
+    monkeypatch.setattr(daemon_cmd.daemon_install, "manager", lambda: mgr)
+    monkeypatch.setattr(daemon_cmd.daemon_install, "executable", lambda: "/opt/homebrew/bin/lirts")
+    monkeypatch.setattr(daemon_cmd.daemon_install, "_run", lambda c: (0, ""))
+    monkeypatch.setattr(daemon_cmd, "wait_for_daemon", lambda: info)
+
+    result = runner.invoke(cli.app, ["daemon", "install"])
+
+    assert result.exit_code == 0, result.output
+    assert "registered /opt/homebrew/bin/lirts" in result.output
+    assert "running  PID 9" in result.output
+    assert "MCP: http://127.0.0.1:7421/mcp" in result.output

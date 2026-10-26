@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lirts.constants import DAEMON_IDLE_INTERVAL, MIN_REFRESH_INTERVAL
+from lirts.constants import DAEMON_IDLE_INTERVAL, DAEMON_MCP_PORT, MIN_REFRESH_INTERVAL
 
 # Bumped whenever keys are removed or renamed (added keys just take their defaults).  A file
 # with an older schema still
@@ -219,6 +219,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "daemon": {
         # Seconds between the daemon's own refreshes while no dashboard is attached.
         "idle_interval": DAEMON_IDLE_INTERVAL,
+        # The daemon's MCP endpoint for coding agents (http://127.0.0.1:<port>/mcp); 0 = off.
+        "mcp_port": DAEMON_MCP_PORT,
     },
 }
 
@@ -240,6 +242,7 @@ MINIMUMS: dict[str, float] = {
     "topology.days": 1,
     "topology.usual_days": 1,
     "daemon.idle_interval": MIN_REFRESH_INTERVAL,
+    "daemon.mcp_port": 0,
     "thresholds.cpu.yellow": 0,
     "thresholds.cpu.red": 0,
     "thresholds.memory_mb.yellow": 0,
@@ -255,6 +258,7 @@ INTEGER_KEYS: frozenset[str] = frozenset(
         "insights.pattern_min",
         "topology.days",
         "topology.usual_days",
+        "daemon.mcp_port",
     }
 )
 
