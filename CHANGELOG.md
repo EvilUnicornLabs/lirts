@@ -6,6 +6,8 @@ All notable changes to lirts are documented here.  The format follows
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-10-26
+
 ### Changed
 - A Homebrew-installed lirts runs its daemon as a brew service: `brew services start lirts`
   (the formula has a `service` block; `stop` and `restart` likewise, listed by `brew services`).
