@@ -6,6 +6,13 @@ All notable changes to lirts are documented here.  The format follows
 
 ## [Unreleased]
 
+### Changed
+- A Homebrew-installed lirts runs its daemon as a brew service: `brew services start lirts`
+  (the formula has a `service` block; `stop` and `restart` likewise, listed by `brew services`).
+  `lirts daemon install`, `start` and `uninstall` say so instead of writing a second agent;
+  `lirts daemon status` reports the brew service. pipx and other installs keep
+  `lirts daemon install`.
+
 ### Fixed
 - The daemon's own log records no longer echo to stderr through the mcp SDK's handler, which
   made launchd's `daemon.log` grow with every event line.

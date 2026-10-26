@@ -116,6 +116,7 @@ def test_install_command_waits_for_the_daemon_and_prints_its_status(
     }
     monkeypatch.setattr(daemon_cmd.daemon_install, "manager", lambda: mgr)
     monkeypatch.setattr(daemon_cmd.daemon_install, "executable", lambda: "/opt/homebrew/bin/lirts")
+    monkeypatch.setattr(daemon_cmd.daemon_install, "from_homebrew", lambda exe=None: False)
     monkeypatch.setattr(daemon_cmd.daemon_install, "_run", lambda c: (0, ""))
     monkeypatch.setattr(daemon_cmd, "wait_for_daemon", lambda: info)
 
@@ -158,6 +159,51 @@ def test_executable_uses_the_stable_link_for_a_cellar_program(
     monkeypatch.setattr("sys.argv", [str(cellar), "daemon", "install"])
 
     assert daemon_install.executable() == str(tmp_path / "bin" / "lirts")
+
+
+def test_from_homebrew_recognises_a_cellar_binary(tmp_path: Path) -> None:
+    cellar = tmp_path / "Cellar" / "lirts" / "0.7.3" / "libexec" / "bin" / "lirts"
+    cellar.parent.mkdir(parents=True)
+    cellar.write_text("#!/bin/sh\n")
+
+    assert daemon_install.from_homebrew(str(cellar)) is True
+    assert daemon_install.from_homebrew(str(tmp_path / "venv" / "bin" / "lirts")) is False
+    assert daemon_install.brew_service_file(tmp_path, "Darwin").name == "homebrew.mxcl.lirts.plist"
+    assert daemon_install.brew_service_file(tmp_path, "Linux").name == "homebrew.lirts.service"
+
+
+def test_install_and_start_defer_to_brew_services_for_a_homebrew_lirts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mgr = daemon_install.manager("Darwin", home=tmp_path)
+    monkeypatch.setattr(daemon_cmd.daemon_install, "manager", lambda: mgr)
+    monkeypatch.setattr(daemon_cmd.daemon_install, "executable", lambda: "/opt/homebrew/bin/lirts")
+    monkeypatch.setattr(daemon_cmd.daemon_install, "from_homebrew", lambda exe=None: True)
+
+    install = runner.invoke(cli.app, ["daemon", "install"])
+    start = runner.invoke(cli.app, ["daemon", "start"])
+    uninstall = runner.invoke(cli.app, ["daemon", "uninstall"])
+
+    assert install.exit_code == 0 and "brew services start lirts" in install.output
+    assert start.exit_code == 0 and "brew services start lirts" in start.output
+    assert uninstall.exit_code == 0 and "brew services stop lirts" in uninstall.output
+    assert mgr is not None and not mgr.file.exists()
+
+
+def test_status_names_the_brew_service(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    mgr = daemon_install.manager("Darwin", home=tmp_path)
+    brew_file = tmp_path / "homebrew.mxcl.lirts.plist"
+    monkeypatch.setattr(daemon_cmd.daemon_install, "manager", lambda: mgr)
+    monkeypatch.setattr(daemon_cmd.daemon_install, "from_homebrew", lambda exe=None: True)
+    monkeypatch.setattr(daemon_cmd.daemon_install, "brew_service_file", lambda: brew_file)
+    monkeypatch.setattr(daemon_cmd, "ping", lambda path: None)
+
+    before = runner.invoke(cli.app, ["daemon", "status"])
+    brew_file.write_text("plist")
+    after = runner.invoke(cli.app, ["daemon", "status"])
+
+    assert "not started: brew services start lirts" in before.output
+    assert "brew services (started at login)" in after.output
 
 
 def test_run_daemon_keeps_lirts_log_records_out_of_stderr(monkeypatch: pytest.MonkeyPatch) -> None:

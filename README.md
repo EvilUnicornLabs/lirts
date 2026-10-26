@@ -231,7 +231,7 @@ lirts mcp                   # serve all of the above to a coding agent over MCP 
 
 lirts daemon                # one engine for the whole machine, in the foreground (lirts -d); dashboards, commands and agents attach to it;
                             # it serves MCP at http://127.0.0.1:7421/mcp (--mcp-port, --allow-actions)
-lirts daemon install        # start it at every login (launchd on macOS, systemd on Linux); status | stop | start | uninstall
+brew services start lirts   # Homebrew: run it at every login; pipx: lirts daemon install. status | stop | uninstall
 ```
 
 ### The daemon: one engine for everything
@@ -240,8 +240,9 @@ Without it, every `lirts`, `lirts who` and `lirts mcp` collects on its own and l
 own. `lirts daemon` (or `lirts -d`) runs one engine for the whole machine, and from then on
 the dashboard, every CLI command and every agent session attach to it instead of starting
 their own: one collector, one history, one star map, and the port memory keeps learning all
-day even when no dashboard is open. `lirts daemon install` starts it at login; `lirts daemon
-status`, `stop`, `start` and `uninstall` manage it; `lirts doctor` shows whether one runs; the
+day even when no dashboard is open. From Homebrew, `brew services start lirts` runs it at
+login (`stop`, `restart`; it appears in `brew services`); from pipx, `lirts daemon install`
+does; `lirts daemon status` and `stop` work for both; `lirts doctor` shows whether one runs; the
 title bar says `via daemon (PID …)` when the dashboard is attached, and `lirts --standalone`
 runs an engine of its own anyway.
 

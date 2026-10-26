@@ -73,6 +73,23 @@ def executable() -> str | None:
     return shutil.which("lirts")
 
 
+def from_homebrew(program: str | None = None) -> bool:
+    """Whether the lirts that runs is a Homebrew install (its service is brew's business)."""
+    target = program or executable() or ""
+    try:
+        return "Cellar" in Path(target).resolve().parts
+    except OSError:
+        return False
+
+
+def brew_service_file(home: Path | None = None, system: str | None = None) -> Path:
+    """The agent / unit ``brew services`` writes for lirts."""
+    home = home or Path.home()
+    if (system or platform.system()) == "Darwin":
+        return home / "Library" / "LaunchAgents" / "homebrew.mxcl.lirts.plist"
+    return home / ".config" / "systemd" / "user" / "homebrew.lirts.service"
+
+
 def stable_path(program: Path) -> Path:
     """``<prefix>/bin/lirts`` for a program inside Homebrew's Cellar, else the program itself."""
     parts = program.parts
