@@ -6,6 +6,14 @@ All notable changes to lirts are documented here.  The format follows
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-10-26
+
+### Fixed
+- `lirts daemon install` from a Homebrew install registers `/opt/homebrew/bin/lirts` (the
+  versionless link) instead of the path inside the Cellar, so `brew upgrade lirts` no longer
+  leaves the launch agent pointing at a removed directory. Run `lirts daemon install` once
+  after upgrading to this version; later upgrades need nothing.
+
 ## [0.7.1] - 2026-10-26
 
 ### Added

@@ -125,3 +125,36 @@ def test_install_command_waits_for_the_daemon_and_prints_its_status(
     assert "registered /opt/homebrew/bin/lirts" in result.output
     assert "running  PID 9" in result.output
     assert "MCP: http://127.0.0.1:7421/mcp" in result.output
+
+
+def test_a_cellar_binary_is_registered_through_the_prefix_link(tmp_path: Path) -> None:
+    cellar = tmp_path / "Cellar" / "lirts" / "0.7.1" / "libexec" / "bin" / "lirts"
+    cellar.parent.mkdir(parents=True)
+    cellar.write_text("#!/bin/sh\n")
+    link = tmp_path / "bin" / "lirts"
+    link.parent.mkdir()
+    link.symlink_to(cellar)
+
+    assert daemon_install.stable_path(cellar) == link
+    assert daemon_install.stable_path(tmp_path / "venv" / "bin" / "lirts") == (
+        tmp_path / "venv" / "bin" / "lirts"
+    )
+
+
+def test_a_cellar_binary_without_the_link_is_registered_as_is(tmp_path: Path) -> None:
+    cellar = tmp_path / "Cellar" / "lirts" / "0.7.1" / "bin" / "lirts"
+
+    assert daemon_install.stable_path(cellar) == cellar
+
+
+def test_executable_uses_the_stable_link_for_a_cellar_program(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cellar = tmp_path / "Cellar" / "lirts" / "0.7.1" / "libexec" / "bin" / "lirts"
+    cellar.parent.mkdir(parents=True)
+    cellar.write_text("#!/bin/sh\n")
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin" / "lirts").symlink_to(cellar)
+    monkeypatch.setattr("sys.argv", [str(cellar), "daemon", "install"])
+
+    assert daemon_install.executable() == str(tmp_path / "bin" / "lirts")

@@ -29,11 +29,14 @@ gitignored `local/` folder, not here.
    looping; the daemon raises its open-files limit; rotating logs, `mcp.log` for agent sessions;
    malloc debugging variables dropped from the daemon's environment; `daemon install` registers
    the binary that ran it and waits for the daemon.
-5. [ ] Port the core logic to Go; TUI with Bubble Tea; optimise for very high port / process counts.
-6. [ ] Single-binary distribution for macOS and Linux. A bundled binary redistributes the
+5. [x] **Homebrew upgrades keep the daemon** (0.7.2, 2026-10-26): `lirts daemon install` registers
+   the prefix link `/opt/homebrew/bin/lirts`, not the Cellar path, so `brew upgrade` does not strand
+   the launch agent.
+6. [ ] Port the core logic to Go; TUI with Bubble Tea; optimise for very high port / process counts.
+7. [ ] Single-binary distribution for macOS and Linux. A bundled binary redistributes the
    dependencies, so the build generates a `THIRD_PARTY_LICENSES` file (for example with `pip-licenses`)
    and ships it next to the binary; the source tree itself vendors nothing and needs none.
-7. [ ] Per-process bandwidth on Linux (needs eBPF or root).
+8. [ ] Per-process bandwidth on Linux (needs eBPF or root).
 
 Keep unchanged throughout: ports, processes, containers, stacks, identity, health, anomalies,
 blast radius, kill / restart / stop, traffic, who-talks-to-whom, proxies, Kubernetes, ssh, reach,
