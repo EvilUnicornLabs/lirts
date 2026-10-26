@@ -13,6 +13,10 @@ All notable changes to lirts are documented here.  The format follows
   `lirts daemon status` reports the brew service. pipx and other installs keep
   `lirts daemon install`.
 
+### Fixed
+- The daemon's own log records no longer echo to stderr through the mcp SDK's handler, which
+  made launchd's `daemon.log` grow with every event line.
+
 ## [0.7.2] - 2026-10-26
 
 ### Fixed
