@@ -7,6 +7,7 @@ make the service manager start it at login; ``status``, ``start`` and ``stop`` s
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from pathlib import Path
@@ -89,6 +90,9 @@ def run_daemon(
 ) -> None:
     """Run the daemon in the foreground until it is stopped (also ``lirts -d``)."""
     _setup_logging(debug)
+    # The mcp SDK echoes the root logger to stderr (launchd's daemon.log); lirts's own log
+    # already goes to the state directory, so its records must not propagate there.
+    logging.getLogger("lirts").propagate = False
     strip_debug_env()
     cfg = _build_config(config, udp=True, docker=docker, probe=probe, hide_system=False)
     view = ConfigView(cfg)
