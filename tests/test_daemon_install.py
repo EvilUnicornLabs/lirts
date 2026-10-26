@@ -158,3 +158,20 @@ def test_executable_uses_the_stable_link_for_a_cellar_program(
     monkeypatch.setattr("sys.argv", [str(cellar), "daemon", "install"])
 
     assert daemon_install.executable() == str(tmp_path / "bin" / "lirts")
+
+
+def test_run_daemon_keeps_lirts_log_records_out_of_stderr(monkeypatch: pytest.MonkeyPatch) -> None:
+    import logging
+
+    from lirts.daemon import DaemonServer
+
+    async def serve(self: DaemonServer) -> None:
+        self.engine.close()
+
+    monkeypatch.setattr(DaemonServer, "serve", serve)
+    logging.getLogger("lirts").propagate = True
+
+    result = runner.invoke(cli.app, ["daemon", "--demo", "--mcp-port", "0"])
+
+    assert result.exit_code == 0, result.output
+    assert logging.getLogger("lirts").propagate is False
