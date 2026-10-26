@@ -32,6 +32,16 @@ class Lirts < Formula
     virtualenv_install_with_resources
   end
 
+  # `brew services start lirts`: the daemon, one engine for dashboards, the CLI and coding
+  # agents (MCP at http://127.0.0.1:7421/mcp), kept alive and started at login.
+  service do
+    run [opt_bin/"lirts", "daemon"]
+    keep_alive true
+    process_type :background
+    log_path var/"log/lirts-daemon.log"
+    error_log_path var/"log/lirts-daemon.log"
+  end
+
   test do
     assert_match "lirts", shell_output("#{bin}/lirts --version")
     assert_match "PORT", shell_output("#{bin}/lirts list --no-docker --no-probe")

@@ -160,11 +160,30 @@ def _print_status(info: dict[str, Any]) -> None:
     )
 
 
+BREW_HINT = (
+    "this lirts comes from Homebrew; its daemon is a brew service: "
+    "brew services start lirts (stop | restart likewise)"
+)
+
+
 @daemon_app.command("status")
 def daemon_status() -> None:
     """Is the daemon running, and is it installed to start at login? Exit 1 when not running."""
     mgr = daemon_install.manager()
-    if mgr is not None:
+    if daemon_install.from_homebrew():
+        brew_file = daemon_install.brew_service_file()
+        state = (
+            "brew services (started at login)"
+            if brew_file.exists()
+            else "not started: brew services start lirts"
+        )
+        console.print(f"login start: {state}")
+        if mgr is not None and mgr.file.exists():
+            console.print(
+                f"[yellow]a lirts daemon install agent also exists ({escape(str(mgr.file))}); "
+                "run `lirts daemon uninstall` so only the brew service remains[/]"
+            )
+    elif mgr is not None:
         state = "installed" if mgr.file.exists() else "not installed"
         console.print(f"login start: {state} ({mgr.kind}, {escape(str(mgr.file))})")
     info = ping(socket_path())
@@ -211,6 +230,9 @@ def daemon_install_command() -> None:
     if exe is None:
         err_console.print("[red]cannot find the lirts command to register[/]")
         raise typer.Exit(code=1)
+    if daemon_install.from_homebrew(exe):
+        console.print(BREW_HINT)
+        return
     _report(*daemon_install.install(mgr, exe=exe))
     console.print(f"registered {escape(exe)}")
     info = wait_for_daemon()
@@ -236,10 +258,17 @@ def wait_for_daemon(
 @daemon_app.command("uninstall")
 def daemon_uninstall_command() -> None:
     """Stop starting the daemon at login and remove the service file."""
-    _report(*daemon_install.uninstall(_manager_or_exit()))
+    mgr = _manager_or_exit()
+    if not mgr.file.exists() and daemon_install.from_homebrew():
+        console.print(BREW_HINT.replace("start lirts", "stop lirts"))
+        return
+    _report(*daemon_install.uninstall(mgr))
 
 
 @daemon_app.command("start")
 def daemon_start_command() -> None:
     """Start the installed daemon now."""
+    if daemon_install.from_homebrew():
+        console.print(BREW_HINT)
+        return
     _report(*daemon_install.start(_manager_or_exit()))
