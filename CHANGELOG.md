@@ -6,6 +6,12 @@ All notable changes to lirts are documented here.  The format follows
 
 ## [Unreleased]
 
+### Fixed
+- `lirts daemon status` recognises the Homebrew service under its current label
+  `sh.brew.lirts` (older Homebrew: `homebrew.mxcl.lirts`); it said "not started" while the
+  service was running. When lirts' own launch agent exists next to the brew service, the
+  status warns that two login items start two daemons.
+
 ## [0.7.3] - 2026-10-26
 
 ### Changed

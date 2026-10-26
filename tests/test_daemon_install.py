@@ -168,8 +168,11 @@ def test_from_homebrew_recognises_a_cellar_binary(tmp_path: Path) -> None:
 
     assert daemon_install.from_homebrew(str(cellar)) is True
     assert daemon_install.from_homebrew(str(tmp_path / "venv" / "bin" / "lirts")) is False
-    assert daemon_install.brew_service_file(tmp_path, "Darwin").name == "homebrew.mxcl.lirts.plist"
-    assert daemon_install.brew_service_file(tmp_path, "Linux").name == "homebrew.lirts.service"
+    assert daemon_install.brew_service_file(tmp_path, "Darwin") is None
+    assert [f.name for f in daemon_install.brew_service_files(tmp_path, "Darwin")] == [
+        "sh.brew.lirts.plist",
+        "homebrew.mxcl.lirts.plist",
+    ]
 
 
 def test_install_and_start_defer_to_brew_services_for_a_homebrew_lirts(
@@ -190,20 +193,60 @@ def test_install_and_start_defer_to_brew_services_for_a_homebrew_lirts(
     assert mgr is not None and not mgr.file.exists()
 
 
-def test_status_names_the_brew_service(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_brew_service_file_knows_both_homebrew_labels(tmp_path: Path) -> None:
+    agents = tmp_path / "Library" / "LaunchAgents"
+    agents.mkdir(parents=True)
+
+    assert daemon_install.brew_service_file(tmp_path, "Darwin") is None
+    (agents / "homebrew.mxcl.lirts.plist").write_text("old")
+    assert (
+        daemon_install.brew_service_file(tmp_path, "Darwin") == agents / "homebrew.mxcl.lirts.plist"
+    )
+    (agents / "sh.brew.lirts.plist").write_text("new")
+    assert daemon_install.brew_service_file(tmp_path, "Darwin") == agents / "sh.brew.lirts.plist"
+    assert [f.name for f in daemon_install.brew_service_files(tmp_path, "Linux")] == [
+        "homebrew.lirts.service"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("brew_loaded", "own_agent", "expected", "warned"),
+    [
+        (True, False, "login start: brew services (sh.brew.lirts, started at login)", False),
+        (False, True, "login start: not started: brew services start lirts", True),
+        (False, False, "login start: not started: brew services start lirts", False),
+        (True, True, "login start: brew services (sh.brew.lirts, started at login)", True),
+    ],
+    ids=["brew", "own-agent", "neither", "both"],
+)
+def test_status_login_start_line_for_a_homebrew_lirts(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    brew_loaded: bool,
+    own_agent: bool,
+    expected: str,
+    warned: bool,
+) -> None:
     mgr = daemon_install.manager("Darwin", home=tmp_path)
-    brew_file = tmp_path / "homebrew.mxcl.lirts.plist"
+    assert mgr is not None
+    agents = mgr.file.parent
+    agents.mkdir(parents=True)
+    if brew_loaded:
+        (agents / "sh.brew.lirts.plist").write_text("plist")
+    if own_agent:
+        mgr.file.write_text("plist")
+    lookup = daemon_install.brew_service_file  # the real one, before it is patched below
     monkeypatch.setattr(daemon_cmd.daemon_install, "manager", lambda: mgr)
     monkeypatch.setattr(daemon_cmd.daemon_install, "from_homebrew", lambda exe=None: True)
-    monkeypatch.setattr(daemon_cmd.daemon_install, "brew_service_file", lambda: brew_file)
+    monkeypatch.setattr(
+        daemon_cmd.daemon_install, "brew_service_file", lambda: lookup(tmp_path, "Darwin")
+    )
     monkeypatch.setattr(daemon_cmd, "ping", lambda path: None)
 
-    before = runner.invoke(cli.app, ["daemon", "status"])
-    brew_file.write_text("plist")
-    after = runner.invoke(cli.app, ["daemon", "status"])
+    result = runner.invoke(cli.app, ["daemon", "status"])
 
-    assert "not started: brew services start lirts" in before.output
-    assert "brew services (started at login)" in after.output
+    assert expected in result.output
+    assert ("a lirts daemon install agent also exists" in result.output) is warned
 
 
 def test_run_daemon_keeps_lirts_log_records_out_of_stderr(monkeypatch: pytest.MonkeyPatch) -> None:
