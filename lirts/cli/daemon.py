@@ -7,6 +7,7 @@ make the service manager start it at login; ``status``, ``start`` and ``stop`` s
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from pathlib import Path
 from typing import Annotated, Any
@@ -27,17 +28,34 @@ from lirts.cli.common import (
     err_console,
 )
 from lirts.config_view import ConfigView
+from lirts.constants import DAEMON_START_WAIT
 from lirts.daemon import DaemonServer
 from lirts.daemon_client import DaemonClient, DaemonError, ping, socket_path
 from lirts.demo import DemoEngine
 from lirts.engine import Engine
 from lirts.insights import format_duration
+from lirts.mcp_server import http_url
 
 daemon_app = typer.Typer(
     help="One engine for the whole machine, shared by dashboards, the CLI and lirts mcp.",
     invoke_without_command=True,
 )
 
+McpPortOpt = Annotated[
+    int | None,
+    typer.Option(
+        "--mcp-port",
+        help="Serve MCP to coding agents at http://127.0.0.1:<port>/mcp (daemon.mcp_port); 0 = off.",
+        show_default=False,
+    ),
+]
+AllowActionsOpt = Annotated[
+    bool,
+    typer.Option(
+        "--allow-actions",
+        help="The MCP endpoint also offers free_port, fix and restart; without it every tool is read-only.",
+    ),
+]
 IdleOpt = Annotated[
     float | None,
     typer.Option(
@@ -48,24 +66,46 @@ IdleOpt = Annotated[
 ]
 
 
+def strip_debug_env() -> None:
+    """Drop macOS malloc debugging variables so every spawned command stays quiet.
+
+    A launch agent can inherit ``MallocStackLogging`` and friends; each ``nettop`` or
+    ``docker`` child then prints a notice to the daemon's log, thousands of times a day.
+    """
+    for key in [k for k in os.environ if k.startswith("Malloc")]:
+        del os.environ[key]
+
+
 def run_daemon(
     config: Path | None,
     *,
     docker: bool = True,
     probe: bool = True,
     idle: float | None = None,
+    mcp_port: int | None = None,
+    allow_actions: bool = False,
     demo: bool = False,
     debug: bool = False,
 ) -> None:
     """Run the daemon in the foreground until it is stopped (also ``lirts -d``)."""
     _setup_logging(debug)
+    strip_debug_env()
     cfg = _build_config(config, udp=True, docker=docker, probe=probe, hide_system=False)
     view = ConfigView(cfg)
     interval = idle if idle is not None else view.daemon.idle_interval
+    port = mcp_port if mcp_port is not None else view.daemon.mcp_port
     engine: Engine = DemoEngine(cfg) if demo else Engine(cfg)
-    server = DaemonServer(engine, socket_path=socket_path(), idle_interval=interval)
+    server = DaemonServer(
+        engine,
+        socket_path=socket_path(),
+        idle_interval=interval,
+        mcp_port=port,
+        allow_actions=allow_actions,
+    )
     err_console.print(
         f"lirts daemon on {escape(str(server.socket_path))}, idle refresh every {interval:g}s"
+        + (f", MCP at {http_url(port)}" if port else "")
+        + (" with actions" if allow_actions and port else "")
         + (" (demo machine)" if demo else "")
         + "; Ctrl-C stops"
     )
@@ -83,13 +123,24 @@ def daemon_main(
     docker: DockerOpt = True,
     probe: ProbeOpt = True,
     idle: IdleOpt = None,
+    mcp_port: McpPortOpt = None,
+    allow_actions: AllowActionsOpt = False,
     debug: DebugOpt = False,
     demo: DemoOpt = False,
 ) -> None:
     """Run the daemon in the foreground (no sub-command), or manage the installed one."""
     if ctx.invoked_subcommand is not None:
         return
-    run_daemon(config, docker=docker, probe=probe, idle=idle, demo=demo, debug=debug)
+    run_daemon(
+        config,
+        docker=docker,
+        probe=probe,
+        idle=idle,
+        mcp_port=mcp_port,
+        allow_actions=allow_actions,
+        demo=demo,
+        debug=debug,
+    )
 
 
 def _print_status(info: dict[str, Any]) -> None:
@@ -100,6 +151,12 @@ def _print_status(info: dict[str, Any]) -> None:
         f"running  PID {info.get('pid')}  lirts {info.get('version')}  up {up}  "
         f"{info.get('refreshes')} refreshes  idle every {info.get('idle_interval')}s  "
         f"last client {client}" + ("  DEMO" if info.get("demo") else "")
+    )
+    url = info.get("mcp_url")
+    console.print(
+        f"MCP: {escape(str(url))}" + ("  (actions allowed)" if info.get("allow_actions") else "")
+        if url
+        else "MCP: off (daemon.mcp_port = 0, or the mcp SDK is missing)"
     )
 
 
@@ -152,9 +209,28 @@ def daemon_install_command() -> None:
     mgr = _manager_or_exit()
     exe = daemon_install.executable()
     if exe is None:
-        err_console.print("[red]lirts is not on PATH; install it with pipx first[/]")
+        err_console.print("[red]cannot find the lirts command to register[/]")
         raise typer.Exit(code=1)
     _report(*daemon_install.install(mgr, exe=exe))
+    console.print(f"registered {escape(exe)}")
+    info = wait_for_daemon()
+    if info is None:
+        console.print("[yellow]not answering yet; check `lirts daemon status` in a moment[/]")
+        return
+    _print_status(info)
+
+
+def wait_for_daemon(
+    timeout: float = DAEMON_START_WAIT, pause: float = 0.25
+) -> dict[str, Any] | None:
+    """Poll the socket until the freshly started daemon answers, or give up."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        info = ping(socket_path())
+        if info is not None:
+            return info
+        time.sleep(pause)
+    return None
 
 
 @daemon_app.command("uninstall")

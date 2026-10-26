@@ -117,3 +117,4 @@ topology:
 # open for every dashboard, CLI command and coding agent.
 daemon:
   idle_interval: 10   # seconds between its own refreshes while no dashboard is attached (--idle overrides)
+  mcp_port: 7421      # MCP endpoint for coding agents at http://127.0.0.1:7421/mcp; 0 = off (--mcp-port overrides)

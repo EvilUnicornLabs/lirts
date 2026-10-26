@@ -58,13 +58,16 @@ def manager(system: str | None = None, home: Path | None = None) -> Manager | No
 
 
 def executable() -> str | None:
-    """The ``lirts`` command the service should run: the one on PATH, else this program."""
-    found = shutil.which("lirts")
-    if found:
-        return found
-    if sys.argv and sys.argv[0].endswith("lirts"):
-        return str(Path(sys.argv[0]).resolve())
-    return None
+    """The ``lirts`` command the service should run: the one running this install.
+
+    The program that was started is preferred over the first ``lirts`` on PATH, so a Homebrew
+    install registers the Homebrew binary even while an older one is still on PATH.
+    """
+    if sys.argv and Path(sys.argv[0]).name == "lirts":
+        program = Path(sys.argv[0])
+        if program.exists():
+            return str(program.resolve())
+    return shutil.which("lirts")
 
 
 def render(kind: str, exe: str, log: Path) -> str:

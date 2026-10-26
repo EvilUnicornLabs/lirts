@@ -229,7 +229,8 @@ lirts config path | show | init | upgrade | set http_probe.interval 30 | themes
 
 lirts mcp                   # serve all of the above to a coding agent over MCP (stdio); --allow-actions adds free / fix / restart
 
-lirts daemon                # one engine for the whole machine, in the foreground (lirts -d); dashboards, commands and agents attach to it
+lirts daemon                # one engine for the whole machine, in the foreground (lirts -d); dashboards, commands and agents attach to it;
+                            # it serves MCP at http://127.0.0.1:7421/mcp (--mcp-port, --allow-actions)
 lirts daemon install        # start it at every login (launchd on macOS, systemd on Linux); status | stop | start | uninstall
 ```
 
@@ -246,7 +247,9 @@ runs an engine of its own anyway.
 
 While nothing is attached the daemon refreshes every `daemon.idle_interval` seconds (10 by
 default, `--idle N` overrides it); an attached dashboard drives refreshes at its own
-`refresh_interval`. Health checks still run only when asked, from whichever side asks, and
+`refresh_interval`. The daemon is also the MCP server for coding agents, at
+`http://127.0.0.1:7421/mcp` (`daemon.mcp_port`, `--mcp-port`, 0 = off; `--allow-actions` adds
+the three actions), see the next section. Health checks still run only when asked, from whichever side asks, and
 their results are kept in the daemon. Kill, restart, logs and exec happen on the attached
 side, which is the same user on the same machine; what must land in the shared memory (a
 note in the event log, a routes reload) goes over the socket. The socket lives in the state
@@ -254,22 +257,38 @@ directory, readable by your user only.
 
 ### For coding agents (MCP)
 
-`lirts mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio,
-so an agent such as Claude Code or Cursor can ask lirts instead of guessing from `lsof`: what
-is on port 3000, what usually runs there, is it a leftover, who talks to whom, what does the
-machine look like. It needs the optional `mcp` SDK (`pip install 'lirts[mcp]'`, or
-`pipx inject lirts mcp`); `lirts doctor` says whether it is there.
+lirts speaks the [Model Context Protocol](https://modelcontextprotocol.io), so an agent such
+as Claude Code or Cursor asks lirts instead of guessing from `lsof`: what is on port 3000,
+what usually runs there, is it a leftover, who talks to whom, what does the machine look
+like.
+
+**With the daemon (one server for every project).** The daemon serves MCP over HTTP on the
+loopback interface, `http://127.0.0.1:7421/mcp` (`daemon.mcp_port`; 0 switches it off). Point
+every client at that URL, once, and no project ever starts a lirts process of its own:
 
 ```bash
-claude mcp add --scope user lirts -- lirts mcp   # Claude Code, once, for every repository
+claude mcp add --transport http --scope user lirts http://127.0.0.1:7421/mcp
 ```
 
 ```json
-{ "mcpServers": { "lirts": { "command": "lirts", "args": ["mcp"] } } }
+{ "mcpServers": { "lirts": { "type": "http", "url": "http://127.0.0.1:7421/mcp" } } }
 ```
 
-Registered at user scope it is available in every project. Then tell the agent when to use
-it, once, in your global `~/.claude/CLAUDE.md` (or a project's):
+The endpoint is read-only unless the daemon was started with `--allow-actions`; it answers
+only on 127.0.0.1, so any process on the machine can read it, as it can run `lirts list`.
+
+**Without the daemon.** `lirts mcp` is the same server over stdio; the client starts it. It
+needs the optional `mcp` SDK (`pipx install 'lirts[mcp]'` or `pipx inject lirts mcp`; the
+Homebrew install has it). When a daemon runs, `lirts mcp` attaches to it and pulls a frame
+only when a tool is called; without one it holds an engine of its own open while the client
+keeps it running.
+
+```bash
+claude mcp add --scope user lirts -- lirts mcp
+```
+
+Then tell the agent when to use it, once, in your global `~/.claude/CLAUDE.md` (or a
+project's):
 
 ```markdown
 ## lirts (MCP)
@@ -278,11 +297,6 @@ lirts MCP: `who` for the port, `list_listeners` for what runs, `explain` for ori
 `graph` and `topology` for what talks to what, `health` for a check now. Prefer its answer
 over lsof / ps guesses. Never free, fix or restart anything through it without asking me.
 ```
-
-Each agent session starts its own `lirts mcp` process. With the daemon running (see above)
-they all attach to the one engine that has been learning all day; without it each server
-holds an engine of its own open, refreshed at `refresh_interval` while the client keeps it
-running, and everything stops with the client. Nothing runs when no client started it.
 
 | Tool | Answers |
 |---|---|
@@ -295,11 +309,7 @@ running, and everything stops with the client. Nothing runs when no client start
 | `routes()`, `stacks()`, `kube()` | nginx / httpd virtual hosts; compose projects; the cluster as kubectl reports it |
 | `health(port?)` | a health check now, of one port or every row; the only way checks run |
 | `doctor()` | the environment checks |
-| `free_port`, `fix`, `restart` | only with `lirts mcp --allow-actions`; the same paths as `lirts free`, `F` and `t`; refused in replay |
-
-Every tool is read-only unless the server was started with `--allow-actions`, so an agent
-cannot stop anything unless you chose that when wiring it up. `--demo` and `--replay FILE`
-work here too.
+| `free_port`, `fix`, `restart` | only with `--allow-actions` (on `lirts daemon` or `lirts mcp`); the same paths as `lirts free`, `F` and `t`; refused in replay |
 
 What it looks like in practice:
 
@@ -332,7 +342,7 @@ asked (`H`, or `lirts health`), never in the background. The table, the side pan
 | The constellation: one node per service / container / tunnel / host / cluster, lines for observed relations, grouped by project | `M` map screen; `lirts topology` (text, `--json`) |
 | Stack / project | PROJECT column; `g` → stacks |
 | Problems and suggestions | ✖ / ⚠ rows; side panel "Insights"; `!` problems only; `n` events with ongoing / recurring; `F` runs the proposed fix |
-| The same answers for a coding agent | `lirts mcp`: an MCP server over stdio with `who`, `list_listeners`, `explain`, `graph`, `topology`, `health` and friends; actions only with `--allow-actions` |
+| The same answers for a coding agent | the daemon's MCP endpoint `http://127.0.0.1:7421/mcp`, or `lirts mcp` over stdio: `who`, `list_listeners`, `explain`, `graph`, `topology`, `health` and friends; actions only with `--allow-actions` |
 | One engine shared by everything, learning all day | `lirts daemon` / `lirts daemon install`; the title bar says `via daemon`; `lirts daemon status`; `lirts doctor` |
 | A port that is taken | the row's insights: "usually shop/web, now node (blog)" when another service sits on a port lirts knows, "left over" when the holder's parent is gone or its stack is stopped, "also used by blog/wordpress" when two projects share a port; side panel "Usually" line; `lirts who 3000`, `lirts free 3000`; `F` kills or stops the holder |
 | Frontend or backend | the role next to the service name and the row icon (○ frontend, ● backend), from the process command line, the compose service name, the container image and what the HTTP probe sees (a dev server with hot reload, HTML, JSON, an OpenAPI path); a guess below 50 % confidence shows a `?`; `i` → Identity tab lists the reasons |
@@ -444,7 +454,7 @@ annotated reference.  The most useful keys:
 | `ui` | looks: `style`, `layout`, `glyphs` (block, braille or demoscene shades for sparklines, bars and row icons), `rounded_corners`, `row_icons` (role icon before the service name, source icon in SRC), `history_panel`, `clock` (strftime for the top bar and event times), `truecolor` (auto, on, off; applied at start). All in Settings under the Layout tab and in the setup wizard |
 | `cli` | `force_color`: keep colours when `lirts list` and friends are piped |
 | `insights` | stale threshold, restart warning, stopped-row and highlight-new minutes, `pattern_days` / `pattern_min` for the recurring-issue memory |
-| `daemon` | `idle_interval`: seconds between the daemon's own refreshes while no dashboard is attached (10); `lirts daemon --idle N` overrides it for one run |
+| `daemon` | `idle_interval`: seconds between the daemon's own refreshes while no dashboard is attached (10); `mcp_port`: the MCP endpoint for coding agents at `http://127.0.0.1:<port>/mcp` (7421, 0 = off); `lirts daemon --idle N` / `--mcp-port N` override them for one run |
 | `topology` | the star map's memory: `days` a star or line is kept after it was last seen (14), `usual_days` before a relation counts as usual and stays on the map while idle (3); learned only while lirts runs, persisted with the history, `lirts topology --clear` forgets |
 
 State (history, the last session's snapshot, patterns, the learned star map, `lirts.log`, the

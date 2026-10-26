@@ -349,7 +349,8 @@ def check_daemon() -> Check:
         "daemon",
         OK,
         f"running, PID {info.get('pid')}, up {up}, {info.get('refreshes')} refreshes; "
-        "dashboards, the CLI and lirts mcp attach to it",
+        "dashboards, the CLI and lirts mcp attach to it"
+        + (f"; MCP at {info['mcp_url']}" if info.get("mcp_url") else "; MCP endpoint off"),
     )
 
 

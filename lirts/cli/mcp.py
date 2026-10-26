@@ -52,7 +52,7 @@ def mcp_command(
     if not mcp_available():
         err_console.print(f"[red]{escape(INSTALL_HINT)}[/]")
         raise typer.Exit(code=2)
-    _setup_logging(debug)
+    _setup_logging(debug, name="mcp")
     # The SDK echoes the root logger to stderr; lirts's log already goes to the state directory.
     logging.getLogger("lirts").propagate = False
     cfg = _build_config(
@@ -62,5 +62,9 @@ def mcp_command(
     cfg.setdefault("bandwidth", {})["mode"] = "off"
     interval = max(MIN_REFRESH_INTERVAL, float(cfg["refresh_interval"]))
     engine = _make_engine(cfg, demo=demo, replay=replay)
-    server = build_server(engine, refresh_interval=interval, allow_actions=allow_actions)
+    # A client of the daemon pulls a frame per tool call; only a standalone engine loops.
+    own_loop = not getattr(engine, "remote", False)
+    server = build_server(
+        engine, refresh_interval=interval, allow_actions=allow_actions, own_loop=own_loop
+    )
     asyncio.run(serve_stdio(server))

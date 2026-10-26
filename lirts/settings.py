@@ -292,6 +292,14 @@ SETTINGS: list[Setting] = [
         live=False,
     ),
     Setting(
+        "daemon.mcp_port",
+        "Daemon MCP port",
+        SettingKind.NUMBER,
+        "The daemon serves coding agents at http://127.0.0.1:<port>/mcp; 0 = off (restart it)",
+        minimum=MINIMUMS["daemon.mcp_port"],
+        live=False,
+    ),
+    Setting(
         "history.persist",
         "Persist history",
         SettingKind.BOOL,

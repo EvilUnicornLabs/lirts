@@ -184,3 +184,15 @@ DAEMON_CALL_TIMEOUT = 30.0
 DAEMON_PING_TIMEOUT = 1.0
 # Bytes of one response line a client accepts (a frame carries every row and the graph).
 DAEMON_MAX_LINE = 64 * 1024 * 1024
+# The daemon's MCP endpoint port (``daemon.mcp_port``); 0 switches the endpoint off.
+DAEMON_MCP_PORT = 7421
+# Open file descriptors the daemon asks for (a client connection costs one; launchd starts
+# processes with a soft limit of 256).
+DAEMON_FD_LIMIT = 65536
+# Seconds `lirts daemon install` waits for the freshly started daemon to answer.
+DAEMON_START_WAIT = 8.0
+
+# ----- logs ---------------------------------------------------------------------------
+# A log file is rotated at this size, keeping this many old copies.
+LOG_MAX_BYTES = 5 * 1024 * 1024
+LOG_BACKUPS = 3

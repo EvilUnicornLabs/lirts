@@ -63,6 +63,7 @@ CASES: dict[str, tuple[str, Any]] = {
     "bandwidth.connections": ("on", True),
     "history.persist": ("off", False),
     "daemon.idle_interval": ("30", 30.0),
+    "daemon.mcp_port": ("7500", 7500),
 }
 
 

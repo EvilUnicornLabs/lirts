@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import AsyncIterator
 from importlib import import_module
 from importlib.util import find_spec
@@ -44,6 +45,9 @@ from lirts.mcp_tools import (
 log = logging.getLogger(__name__)
 
 SERVER_NAME = "lirts"
+# The daemon's MCP endpoint: loopback only, the SDK's conventional path.
+HTTP_HOST = "127.0.0.1"
+HTTP_PATH = "/mcp"
 # Events a client gets by default when it does not say how many.
 DEFAULT_EVENT_LIMIT = 20
 INSTRUCTIONS = (
@@ -60,30 +64,41 @@ def mcp_available() -> bool:
 
 
 class ServerState:
-    """The open engine and the refresh loop behind one server run."""
+    """The engine behind one server, and how it is kept fresh.
 
-    def __init__(self, engine: Engine, *, refresh_interval: float) -> None:
+    A standalone engine (no daemon) gets its own refresh loop, like an open dashboard.  An
+    engine that is the daemon's, or a client of it, has no loop here: a frame is pulled only
+    when a tool is called and the last one is older than the refresh interval, so an idle
+    server costs nothing.
+    """
+
+    def __init__(self, engine: Engine, *, refresh_interval: float, own_loop: bool) -> None:
         self.engine = engine
         self.refresh_interval = refresh_interval
+        self.own_loop = own_loop
         self.refreshes = 0
         self.ready = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
 
     async def _loop(self) -> None:
         while True:
-            try:
-                await self.engine.refresh()
-                self.refreshes += 1
-            except Exception:  # one bad cycle must not stop the server
-                log.exception("refresh failed")
-            finally:
-                self.ready.set()
+            await self._refresh()
             await asyncio.sleep(self.refresh_interval)
 
+    async def _refresh(self) -> None:
+        try:
+            await self.engine.refresh()
+            self.refreshes += 1
+        except Exception:  # one bad cycle must not stop the server
+            log.exception("refresh failed")
+        finally:
+            self.ready.set()
+
     def start(self) -> None:
-        """Start the collectors and the refresh loop, like an opening dashboard."""
+        """Start the collectors and, for a standalone engine, the refresh loop."""
         self.engine.start()
-        self._task = asyncio.create_task(self._loop())
+        if self.own_loop:
+            self._task = asyncio.create_task(self._loop())
 
     async def stop(self) -> None:
         """Stop the loop and close the engine; the state files are persisted here."""
@@ -94,15 +109,31 @@ class ServerState:
         self.engine.close()
 
     async def wait_ready(self) -> Engine:
-        """The engine once the first refresh has been attempted."""
-        await self.ready.wait()
+        """The engine with a frame no older than the refresh interval."""
+        if self.own_loop:
+            await self.ready.wait()
+            return self.engine
+        age = time.time() - self.engine.snapshot.timestamp
+        if not self.engine.snapshot.listeners or age > self.refresh_interval:
+            await self._refresh()
         return self.engine
 
 
-def build_server(engine: Engine, *, refresh_interval: float, allow_actions: bool = False) -> Any:
-    """The MCP server around an engine; returns an ``mcp.server.mcpserver.MCPServer``."""
+def build_server(
+    engine: Engine,
+    *,
+    refresh_interval: float,
+    allow_actions: bool = False,
+    own_loop: bool = True,
+) -> Any:
+    """The MCP server around an engine; returns an ``mcp.server.mcpserver.MCPServer``.
+
+    ``own_loop`` is for a standalone engine, started and stopped with the server.  The
+    daemon passes its own engine with ``own_loop=False``; so does ``lirts mcp`` when it is a
+    client of the daemon.
+    """
     mcpserver = import_module("mcp.server.mcpserver")
-    state = ServerState(engine, refresh_interval=refresh_interval)
+    state = ServerState(engine, refresh_interval=refresh_interval, own_loop=own_loop)
 
     @contextlib.asynccontextmanager
     async def lifespan(_server: Any) -> AsyncIterator[ServerState]:
@@ -118,7 +149,7 @@ def build_server(engine: Engine, *, refresh_interval: float, allow_actions: bool
         SERVER_NAME,
         version=__version__,
         instructions=INSTRUCTIONS,
-        lifespan=lifespan,
+        lifespan=lifespan if own_loop else None,
         log_level="WARNING",
     )
     _register_read_tools(server, state)
@@ -241,3 +272,15 @@ def _register_action_tools(server: Any, state: ServerState) -> None:
 async def serve_stdio(server: Any) -> None:
     """Run the server over stdin / stdout until the client closes the pipe."""
     await server.run_stdio_async()
+
+
+def http_url(port: int) -> str:
+    """Where the daemon's MCP server answers: streamable HTTP on the loopback interface."""
+    return f"http://{HTTP_HOST}:{port}{HTTP_PATH}"
+
+
+async def serve_http(server: Any, *, port: int) -> None:
+    """Run the server over streamable HTTP on 127.0.0.1 until cancelled (the daemon's way)."""
+    await server.run_streamable_http_async(
+        host=HTTP_HOST, port=port, streamable_http_path=HTTP_PATH, stateless_http=True
+    )
