@@ -176,16 +176,15 @@ def daemon_status() -> None:
     mgr = daemon_install.manager()
     if daemon_install.from_homebrew():
         brew_file = daemon_install.brew_service_file()
-        state = (
-            "brew services (started at login)"
-            if brew_file.exists()
-            else "not started: brew services start lirts"
-        )
-        console.print(f"login start: {state}")
+        if brew_file is not None:
+            console.print(f"login start: brew services ({brew_file.stem}, started at login)")
+        else:
+            console.print("login start: not started: brew services start lirts")
         if mgr is not None and mgr.file.exists():
             console.print(
                 f"[yellow]a lirts daemon install agent also exists ({escape(str(mgr.file))}); "
-                "run `lirts daemon uninstall` so only the brew service remains[/]"
+                "two login items start two daemons: run `lirts daemon uninstall` so only the "
+                "brew service remains[/]"
             )
     elif mgr is not None:
         state = "installed" if mgr.file.exists() else "not installed"

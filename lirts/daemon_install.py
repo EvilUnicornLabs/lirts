@@ -82,12 +82,21 @@ def from_homebrew(program: str | None = None) -> bool:
         return False
 
 
-def brew_service_file(home: Path | None = None, system: str | None = None) -> Path:
-    """The agent / unit ``brew services`` writes for lirts."""
+# The launch agent labels `brew services` has used for a formula called lirts, newest first.
+BREW_LABELS = ("sh.brew.lirts", "homebrew.mxcl.lirts")
+
+
+def brew_service_files(home: Path | None = None, system: str | None = None) -> list[Path]:
+    """Every file ``brew services`` may have written for lirts, newest naming first."""
     home = home or Path.home()
     if (system or platform.system()) == "Darwin":
-        return home / "Library" / "LaunchAgents" / "homebrew.mxcl.lirts.plist"
-    return home / ".config" / "systemd" / "user" / "homebrew.lirts.service"
+        return [home / "Library" / "LaunchAgents" / f"{label}.plist" for label in BREW_LABELS]
+    return [home / ".config" / "systemd" / "user" / "homebrew.lirts.service"]
+
+
+def brew_service_file(home: Path | None = None, system: str | None = None) -> Path | None:
+    """The agent / unit ``brew services`` wrote for lirts, or None when it never did."""
+    return next((f for f in brew_service_files(home, system) if f.exists()), None)
 
 
 def stable_path(program: Path) -> Path:
