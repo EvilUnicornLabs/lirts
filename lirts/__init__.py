@@ -7,6 +7,6 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("lirts")
 except PackageNotFoundError:  # running from a source checkout without installation
-    __version__ = "0.7.2"
+    __version__ = "0.7.3"
 
 __all__ = ["__version__"]
